@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.next/
+out/
+target/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Ключи Solana и настройки окружения — никогда не коммитить
+.env
+.env.*
+!.env.example
+.secrets/
+
+# Загруженные документы заёмщиков
+uploads/
+
+# Локальная сборка контракта
+.anchor/
+test-ledger/

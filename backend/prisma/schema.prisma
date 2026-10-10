@@ -1,0 +1,700 @@
+// Схема базы. Миграции: pnpm db:migrate, генерация клиента: pnpm db:generate.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Роли кабинетов. Админ ведёт платформу, заёмщик обслуживает займ, инвестор вкладывает.
+enum Role {
+  ADMIN
+  BORROWER
+  INVESTOR
+}
+
+enum UserStatus {
+  /// Зарегистрирован, но ещё не прошёл проверку: кабинет доступен, операции — нет.
+  PENDING
+  ACTIVE
+  /// Доступ закрыт админом.
+  BLOCKED
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique
+  passwordHash String
+  role         Role
+  status       UserStatus @default(PENDING)
+  /// Имя для интерфейса: ФИО инвестора или название ТОО.
+  name         String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  lastLoginAt  DateTime?
+  /// Вход, предшествующий текущему: по нему видно чужой заход в кабинет.
+  previousLoginAt DateTime?
+
+  /// Кабинет заёмщика, если этот пользователь представляет компанию.
+  borrower Borrower?
+  /// Анкета инвестора: заводится при первом заходе в проверку.
+  investor Investor?
+  adminActions AdminAction[]
+
+  @@index([role, status])
+}
+
+enum BorrowerStatus {
+  /// Карточка заполняется, в кампаниях не предлагается.
+  DRAFT
+  /// Проверен, можно создавать кампании.
+  APPROVED
+  /// Новые кампании запрещены; действующие займы не трогаются.
+  SUSPENDED
+  /// Вместо удаления: карточка скрыта из списков, история кампаний сохраняется.
+  ARCHIVED
+}
+
+/// Внутренний рейтинг платформы, от A (лучший) до D.
+enum CreditRating {
+  A
+  B
+  C
+  D
+}
+
+enum DocumentKind {
+  /// Справка о государственной регистрации
+  REGISTRATION
+  /// Устав
+  CHARTER
+  /// Финансовая отчётность
+  FINANCIALS
+  /// Справка об отсутствии налоговой задолженности
+  TAX
+  /// Договор займа и приложения
+  CONTRACT
+  OTHER
+}
+
+/// Компания-заёмщик. Карточку ведёт админ; кампании ссылаются на неё.
+///
+/// Публичные поля (видны инвестору на витрине): name, description, logoKey,
+/// industry, foundedAt, rating, website. Остальное — внутреннее: БИН, адрес,
+/// контакты, выручка, кошелёк, заметка о рисках, документы.
+model Borrower {
+  id         String         @id @default(uuid()) @db.Uuid
+  /// Название как в документах: ТОО «Астана Трейд».
+  name       String
+  /// Описание для витрины: чем компания занимается.
+  description String?
+  /// Логотип для витрины: путь относительно каталога загрузок.
+  logoKey     String?
+  /// БИН — 12 цифр, уникален.
+  bin        String         @unique
+  status     BorrowerStatus @default(DRAFT)
+  rating     CreditRating?
+  /// Чем занимается компания.
+  industry   String?
+  /// Юридический адрес.
+  address    String?
+  website    String?
+  /// Дата регистрации компании.
+  foundedAt  DateTime?
+  /// Годовая выручка в USD, целые доллары: на карточке точность до цента не нужна.
+  annualRevenueUsd BigInt?
+  employees  Int?
+
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+
+  /// Заметка о рисках: почему такой рейтинг, что проверяли.
+  riskNote String?
+
+  /// Кабинет представителя компании; создаётся по приглашению и не обязателен.
+  userId String? @unique @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  documents  BorrowerDocument[]
+  events     BorrowerEvent[]
+  wallets    BorrowerWallet[]
+  photos     BorrowerPhoto[]
+  invites    BorrowerInvite[]
+  campaigns  Campaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// Кошелёк для получения займа. Их может быть несколько: по разным кампаниям
+/// заёмщик может захотеть получать деньги на разные адреса.
+model BorrowerWallet {
+  id         String   @id @default(uuid()) @db.Uuid
+  borrowerId String   @db.Uuid
+  borrower   Borrower @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  /// Как заёмщик называет адрес: «Binance», «основной».
+  label      String
+  address    String
+  /// Подставляется в мастере кампании по умолчанию; такой ровно один.
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@unique([borrowerId, address])
+  @@index([borrowerId])
+}
+
+/// Фотография предприятия для витрины: цех, склад, команда.
+model BorrowerPhoto {
+  id         String   @id @default(uuid()) @db.Uuid
+  borrowerId String   @db.Uuid
+  borrower   Borrower @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  storageKey String   @unique
+  caption    String?
+  /// Порядок показа в карусели.
+  sortOrder  Int      @default(0)
+  mimeType   String
+  sizeBytes  Int
+  uploadedAt DateTime @default(now())
+
+  @@index([borrowerId, sortOrder])
+}
+
+/// Приглашение в кабинет: одноразовая ссылка со сроком жизни.
+/// В базе хранится только хеш токена — утечка базы не даёт войти.
+model BorrowerInvite {
+  id         String    @id @default(uuid()) @db.Uuid
+  borrowerId String    @db.Uuid
+  borrower   Borrower  @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  /// Кто выдал приглашение.
+  createdBy  String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+
+  @@index([borrowerId])
+}
+
+enum ScheduleKind {
+  /// Равные платежи: тело и проценты в каждом.
+  ANNUITY
+  /// Проценты каждый период, тело — последним платежом.
+  COUPON
+}
+
+/// Шаг между датами платежей. С периодичностью начисления процентов не связан:
+/// шаг меньше месяца нужен, чтобы проверить полный цикл займа за день.
+/// Шаг между датами платежей. Даты уходят в контракт готовыми метками, поэтому
+/// интервал может быть любым: программа шаг не хранит. Месяц считаем в 30 суток,
+/// как и всё остальное на ACT/360.
+enum ScheduleStep {
+  YEAR
+  HALF_YEAR
+  QUARTER
+  MONTH
+  /// Недельный и короче — только для ускоренной проверки цикла.
+  WEEK
+  DAY
+  HOUR
+}
+
+enum CampaignState {
+  /// Черновик: параметры собираются, в контракте ничего нет.
+  DRAFT
+  /// Идёт публикация: часть транзакций уже отправлена.
+  PUBLISHING
+  /// График зафиксирован в контракте, условия менять нельзя.
+  PUBLISHED
+  /// Публикация оборвалась; можно повторить с места обрыва.
+  FAILED
+}
+
+/// Этапы публикации: по ним видно, где оборвалось, и что осталось доделать.
+enum PublishStage {
+  CREATE
+  PERIODS
+  FINALIZE
+}
+
+/// Кампания: черновик в базе, после публикации — зеркало условий сделки в контракте.
+/// Ончейн-состояние (сколько собрано, статус) здесь не хранится, читается из сети.
+model Campaign {
+  id         String   @id @default(uuid()) @db.Uuid
+  borrowerId String   @db.Uuid
+  borrower   Borrower @relation(fields: [borrowerId], references: [id])
+  /// Кошелёк получения из списка заёмщика.
+  walletId   String?  @db.Uuid
+  /// Снимок адреса на момент публикации: в карточке заёмщика он мог измениться.
+  payoutWallet String?
+
+  title      String
+  /// Расчётный токен кампании: контракт хранит его в сделке, у разных кампаний он разный.
+  mint       String?
+  /// Знаки после запятой у токена: нужны, чтобы суммы не разъехались.
+  mintDecimals Int    @default(6)
+  /// На что берутся деньги — видно инвестору.
+  purpose    String?
+  /// Чем подкреплён возврат: залог, поручительство, контракты.
+  collateral String?
+
+  // Параметры контракта.
+  scheduleKind        ScheduleKind @default(ANNUITY)
+  scheduleStep        ScheduleStep @default(MONTH)
+  softCap             BigInt?
+  hardCap             BigInt?
+  minTicket           BigInt?
+  maxTicket           BigInt       @default(0)
+  fundingStart        DateTime?
+  fundingDeadline     DateTime?
+  /// Дата первого платежа; остальные идут с шагом scheduleStep.
+  firstDueAt          DateTime?
+  annualRateBps       Int?
+  periodsPerYear      Int          @default(12)
+  periodCount         Int?
+  penaltyRateBps      Int          @default(2000)
+  defaultThresholdDays Int         @default(90)
+  prepaymentFeeBps    Int          @default(0)
+  platformFeeBps      Int          @default(0)
+  cancelGraceDays     Int          @default(7)
+
+  /// Номинал одной бумаги для облигации. У кредита не используется:
+  /// бумага выпускается только по купонной схеме.
+  bondFaceValue       BigInt?
+  /// Как бумага будет называться в кошельке и обозревателе. Задаётся при
+  /// создании: после выпуска метаданные уже в минте, и менять их поздно.
+  bondName            String?
+  bondSymbol          String?
+  /// Ссылка на страницу выпуска — её тоже видно в обозревателе.
+  bondUri             String?
+
+  /// Докуда дошёл мастер: чтобы вернуть админа на нужный шаг.
+  step  Int           @default(1)
+  state CampaignState @default(DRAFT)
+  /// Текст последней ошибки публикации.
+  error String?
+
+  /// Номер кампании в контракте; появляется при публикации.
+  onchainId BigInt?
+  txs       CampaignTx[]
+  deposits  CampaignDeposit[]
+  events    CampaignEvent[]
+  snapshots BondSnapshot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([state])
+  @@index([borrowerId])
+}
+
+/// Отправленные транзакции публикации: по ним публикация продолжается после обрыва.
+/// Журнал действий админа в контракте: кто разрешил токен, кто опубликовал кампанию.
+model AdminAction {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String   @db.Uuid
+  actor     User     @relation(fields: [actorId], references: [id])
+  /// Что сделали: allowMint, removeMint, publishCampaign.
+  action    String
+  /// К чему относится: адрес токена или кампании.
+  target    String
+  signature String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model CampaignTx {
+  id         String       @id @default(uuid()) @db.Uuid
+  campaignId String       @db.Uuid
+  campaign   Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  stage      PublishStage
+  signature  String
+  createdAt  DateTime     @default(now())
+
+  @@index([campaignId])
+}
+
+/// Журнал значимых изменений карточки: статус, рейтинг, кошелёк, привязка кабинета.
+/// Обычные реквизиты сюда не пишутся, иначе журнал превращается в шум.
+model BorrowerEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  borrowerId  String   @db.Uuid
+  borrower    Borrower @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  /// Кто изменил. Пользователь может быть удалён, поэтому связь не обязательна.
+  actorUserId String?  @db.Uuid
+  /// Имя поля: status, rating, payoutWallet, userId.
+  field       String
+  oldValue    String?
+  newValue    String?
+  createdAt   DateTime @default(now())
+
+  @@index([borrowerId, createdAt])
+}
+
+/// Файл, приложенный к карточке заёмщика. Сам файл лежит на диске, в базе — метаданные.
+model BorrowerDocument {
+  id         String       @id @default(uuid()) @db.Uuid
+  borrowerId String       @db.Uuid
+  borrower   Borrower     @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  kind       DocumentKind @default(OTHER)
+  /// Имя файла, как его назвал загрузивший.
+  fileName   String
+  /// Путь относительно каталога загрузок.
+  storageKey String       @unique
+  mimeType   String
+  sizeBytes  Int
+  uploadedAt DateTime     @default(now())
+
+  @@index([borrowerId])
+}
+
+// ── Инвесторы ───────────────────────────────────────────────────────────────
+//
+// Проверку инвестора сейчас делает админ, позже её заберёт внешний сервис
+// (Sumsub). Чтобы переход свёлся к второму провайдеру и вебхуку, поля анкеты
+// названы как в Sumsub (info / companyInfo), страны хранятся в ISO alpha-3,
+// а статусы повторяют reviewStatus + reviewAnswer + reviewRejectType.
+
+/// Тип инвестора; у Sumsub это applicant type individual / company.
+enum InvestorType {
+  INDIVIDUAL
+  COMPANY
+}
+
+/// Кто выносит решение по анкете.
+enum KycProviderName {
+  /// Админ платформы смотрит документы руками.
+  MANUAL
+  SUMSUB
+}
+
+/// Состояние проверки. Соответствие Sumsub:
+/// init → NOT_STARTED, черновик у нас → DRAFT, pending|queued|prechecked → PENDING,
+/// onHold → ON_HOLD, completed+GREEN → APPROVED,
+/// completed+RED+RETRY → RETRY, completed+RED+FINAL → REJECTED.
+enum KycStatus {
+  NOT_STARTED
+  /// Анкета заполняется, на проверку не отправлена.
+  DRAFT
+  /// Отправлена, ждёт решения.
+  PENDING
+  /// Решение отложено: нужны уточнения вне платформы.
+  ON_HOLD
+  APPROVED
+  /// Отказ с возможностью исправить и отправить снова.
+  RETRY
+  /// Окончательный отказ.
+  REJECTED
+}
+
+enum KycAnswer {
+  GREEN
+  RED
+}
+
+enum KycRejectType {
+  RETRY
+  FINAL
+}
+
+/// Тип удостоверения личности; совпадает с idDocType у Sumsub.
+enum IdDocType {
+  PASSPORT
+  ID_CARD
+  RESIDENCE_PERMIT
+  DRIVERS
+}
+
+enum InvestorDocumentKind {
+  /// Разворот удостоверения личности
+  IDENTITY
+  /// Селфи с документом
+  SELFIE
+  /// Подтверждение адреса проживания
+  PROOF_OF_ADDRESS
+  /// Выписка из торгового реестра
+  COMPANY_REGISTRY
+  /// Устав
+  COMPANY_CHARTER
+  /// Решение о назначении руководителя
+  DIRECTOR_APPOINTMENT
+  /// Структура собственности
+  OWNERSHIP_STRUCTURE
+  OTHER
+}
+
+/// Откуда у инвестора деньги: список, а не свободный текст, иначе анкету нечем проверять.
+enum SourceOfFunds {
+  SALARY
+  BUSINESS
+  INVESTMENTS
+  SALE_OF_ASSETS
+  INHERITANCE
+  SAVINGS
+  OTHER
+}
+
+/// Анкета инвестора и его аккаунт в контракте.
+///
+/// Личные поля заполняются и для компании: там это данные подписанта.
+model Investor {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type   InvestorType @default(INDIVIDUAL)
+  status KycStatus    @default(DRAFT)
+  /// Докуда дошёл мастер: чтобы вернуть инвестора на нужный шаг.
+  step   Int          @default(1)
+
+  // Провайдер проверки. В ручном режиме поля applicantId и levelName пустые.
+  provider         KycProviderName @default(MANUAL)
+  applicantId      String?         @unique
+  /// Уровень проверки у провайдера: basic-kyc-level, kyb-level.
+  levelName        String?
+  reviewAnswer     KycAnswer?
+  reviewRejectType KycRejectType?
+  /// Коды причин отказа провайдера.
+  rejectLabels     String[]
+  /// Комментарий для внутреннего журнала; инвестору не показывается.
+  moderationComment String?
+  /// Комментарий инвестору: что именно исправить.
+  clientComment     String?
+  reviewedAt        DateTime?
+  submittedAt       DateTime?
+
+  // Личные данные (для компании — данные подписанта).
+  firstName      String?
+  lastName       String?
+  middleName     String?
+  dob            DateTime?
+  placeOfBirth   String?
+  /// ISO 3166-1 alpha-3.
+  countryOfBirth String?
+  nationality    String?
+  /// Страна проживания.
+  country        String?
+  addressLine    String?
+  city           String?
+  postCode       String?
+  phone          String?
+  /// Должность подписанта в компании.
+  position       String?
+
+  idDocType       IdDocType?
+  idDocNumber     String?
+  idDocCountry    String?
+  idDocValidUntil DateTime?
+
+  // Компания.
+  companyName        String?
+  registrationNumber String?
+  incorporatedOn     DateTime?
+  companyCountry     String?
+  legalAddress       String?
+  website            String?
+
+  // Декларации.
+  sourceOfFunds     SourceOfFunds?
+  sourceOfFundsNote String?
+  isPep             Boolean?
+  pepDetails        String?
+  termsAcceptedAt   DateTime?
+  riskAcceptedAt    DateTime?
+
+  /// Адрес, на который контракт выводит все выплаты. Без него аккаунт не создать.
+  withdrawalAddress   String?
+  withdrawalCheckedAt DateTime?
+  /// Итог проверки адреса в сети: ok, unknown или причина отказа.
+  withdrawalCheckResult String?
+  /// Заявка инвестора на смену адреса; подтверждает админ.
+  pendingWithdrawalAddress String?
+  pendingRequestedAt       DateTime?
+
+  /// Аккаунт UserAccount в контракте; появляется после одобрения.
+  onchainAccount   String?
+  onchainSignature String?
+  onchainCreatedAt DateTime?
+  whitelistStatus  Boolean   @default(false)
+  /// После смены адреса контракт не даёт вернуть допуск 48 часов.
+  whitelistBlockedUntil DateTime?
+
+  documents     InvestorDocument[]
+  beneficiaries InvestorBeneficiary[]
+  events        InvestorEvent[]
+  deposits      CampaignDeposit[]
+  bondVotes     BondVote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// Бенефициар компании с долей от 25%: этого требует проверка происхождения капитала.
+model InvestorBeneficiary {
+  id         String   @id @default(uuid()) @db.Uuid
+  investorId String   @db.Uuid
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  fullName   String
+  /// ISO 3166-1 alpha-3.
+  country    String
+  /// Доля в сотых долях процента: 3333 — это 33,33%.
+  shareBps   Int
+  position   String?
+  isPep      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([investorId])
+}
+
+/// Файл анкеты. В ручном режиме лежит у нас (storageKey), при Sumsub — у него
+/// (providerFileId); в базе в обоих случаях остаются метаданные.
+model InvestorDocument {
+  id             String               @id @default(uuid()) @db.Uuid
+  investorId     String               @db.Uuid
+  investor       Investor             @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  kind           InvestorDocumentKind @default(OTHER)
+  fileName       String
+  storageKey     String?              @unique
+  providerFileId String?              @unique
+  mimeType       String
+  sizeBytes      Int
+  uploadedAt     DateTime             @default(now())
+
+  @@index([investorId])
+}
+
+/// Журнал значимых изменений анкеты: статус, допуск, адрес вывода, аккаунт в контракте.
+model InvestorEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  investorId  String   @db.Uuid
+  investor    Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  actorUserId String?  @db.Uuid
+  field       String
+  oldValue    String?
+  newValue    String?
+  createdAt   DateTime @default(now())
+
+  @@index([investorId, createdAt])
+}
+
+/// Персональный адрес пополнения инвестора в конкретной кампании.
+/// Адрес детерминированный, но запись нужна: по ней видно, кто участвует,
+/// и когда инвестор сказал, что перевёл деньги.
+model CampaignDeposit {
+  id         String   @id @default(uuid()) @db.Uuid
+  investorId String   @db.Uuid
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  campaignId String   @db.Uuid
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  /// Владелец счёта (PDA) — этот адрес показывают инвестору.
+  owner      String
+  /// Токен-счёт, куда приходят деньги.
+  address    String
+  openSignature String?
+  /// Когда инвестор нажал «Я перевёл»: с этого времени искать перевод.
+  claimedAt  DateTime?
+  openedAt   DateTime @default(now())
+
+  credits DepositCredit[]
+
+  @@unique([investorId, campaignId])
+  @@index([campaignId])
+}
+
+/// Зачисление взноса. Отправителя записываем для проверки происхождения денег;
+/// разобрать его удаётся не всегда, и зачисление из-за этого не задерживается.
+model DepositCredit {
+  id        String          @id @default(uuid()) @db.Uuid
+  depositId String          @db.Uuid
+  deposit   CampaignDeposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+  /// Сколько контракт зачислил в кампанию.
+  amount    BigInt
+  signature String
+  sender    String?
+  createdAt DateTime        @default(now())
+
+  @@index([depositId])
+}
+
+/// Событие контракта по кампании. Читаются из сети и складываются сюда:
+/// на публичном RPC каждая транзакция — отдельный запрос, и читать всю
+/// историю при каждом открытии страницы слишком дорого.
+model CampaignEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  campaignId String   @db.Uuid
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  signature  String
+  slot       BigInt
+  blockTime  DateTime?
+  /// Порядок события внутри транзакции: в одной их бывает несколько.
+  index      Int
+  /// Имя события контракта: Invested, FundingClosed и так далее.
+  name       String
+  /// Данные события как есть, числа строками.
+  payload    Json
+  createdAt  DateTime @default(now())
+
+  @@unique([signature, index])
+  @@index([campaignId, slot])
+}
+
+/// Выбор держателя в голосовании по облигации.
+enum VoteChoice {
+  FOR
+  AGAINST
+}
+
+/// Снятый реестр держателей на дату фиксации.
+///
+/// Храним список целиком: баланс бумаг меняется, и восстановить, кто сколько
+/// держал на прошедшую дату, задним числом нельзя. В сеть уходит только хеш
+/// этого списка — по нему любой проверит, что реестр не подменили.
+model BondSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  campaignId  String   @db.Uuid
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  /// Номер корпоративного действия в реестре выпуска.
+  actionIndex Int
+  /// Вид действия: по снимку одного только номера не понять, голосование это
+  /// или купон, а держателю показывать ждущим надо лишь голосование.
+  kind        String   @default("record")
+  /// Дата фиксации, на которую снят реестр.
+  recordTs    Int
+  /// Дата исполнения: у голосования это срок, до которого принимают голоса.
+  paymentTs   Int      @default(0)
+  /// Список держателей: адрес, токен-счёт, бумаг, сумма права.
+  holders     Json
+  units       BigInt
+  totalAmount BigInt
+  /// SHA-256 канонической записи списка — он же записан в сеть.
+  hash        String
+  createdAt   DateTime @default(now())
+
+  votes BondVote[]
+
+  @@unique([campaignId, actionIndex])
+}
+
+/// Голос держателя. Голосование идёт офчейн, в сеть уходит итог и хеш списка.
+model BondVote {
+  id         String       @id @default(uuid()) @db.Uuid
+  snapshotId String       @db.Uuid
+  snapshot   BondSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  investorId String       @db.Uuid
+  investor   Investor     @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  choice     VoteChoice
+  /// Вес голоса — бумаг на дату фиксации. Копится из снимка, а не из текущего баланса.
+  weight     BigInt
+  createdAt  DateTime     @default(now())
+
+  @@unique([snapshotId, investorId])
+  @@index([investorId])
+}

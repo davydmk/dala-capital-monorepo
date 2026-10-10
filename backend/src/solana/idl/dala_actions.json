@@ -1,0 +1,1650 @@
+{
+  "address": "7JZq4xxCLMaRefYwqgqh78skXkWrf4rtU6ArRjiokrjV",
+  "metadata": {
+    "name": "dala_actions",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Корпоративные действия по токенизированным облигациям Dala Capital"
+  },
+  "instructions": [
+    {
+      "name": "burn_from_holder",
+      "docs": [
+        "Гасит бумаги держателя: при возврате взноса или при погашении займа.",
+        "",
+        "Прожиг, а не пометка: обнулённый supply виден в любом обозревателе, и",
+        "доказывать его нашей программой не нужно. Когда в обращении не остаётся",
+        "ничего, выпуск закрывается."
+      ],
+      "discriminator": [
+        127,
+        115,
+        167,
+        67,
+        38,
+        139,
+        202,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "holder"
+        },
+        {
+          "name": "holder_token",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "holder"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "_campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "units",
+          "type": "u64"
+        },
+        {
+          "name": "redemption",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "close_action",
+      "docs": [
+        "Закрывает действие. Снимок реестра закрывается сразу после записи:",
+        "у него нет исполнения, он сам по себе результат."
+      ],
+      "discriminator": [
+        68,
+        91,
+        38,
+        183,
+        124,
+        74,
+        239,
+        136
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "action",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "registry"
+              },
+              {
+                "kind": "arg",
+                "path": "index"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "_campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "_index",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "declare_action",
+      "docs": [
+        "Объявляет корпоративное действие. Дата фиксации назначается заранее:",
+        "держатели должны знать её до того, как реестр снят."
+      ],
+      "discriminator": [
+        141,
+        188,
+        155,
+        223,
+        245,
+        152,
+        128,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "action",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "registry"
+              },
+              {
+                "kind": "arg",
+                "path": "index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "_campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "index",
+          "type": "u32"
+        },
+        {
+          "name": "kind",
+          "type": {
+            "defined": {
+              "name": "ActionKind"
+            }
+          }
+        },
+        {
+          "name": "record_ts",
+          "type": "i64"
+        },
+        {
+          "name": "payment_ts",
+          "type": "i64"
+        },
+        {
+          "name": "amount_per_unit",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "issue_bond",
+      "docs": [
+        "Выпускает облигацию: создаёт минт с расширениями, пишет в него условия",
+        "и заводит реестр. Бумаг пока ноль — выпуск открыт, но никто не вложился."
+      ],
+      "discriminator": [
+        89,
+        175,
+        93,
+        128,
+        140,
+        237,
+        182,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "которых типизированный `init` не умеет."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "registry"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "BondParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "mint_to_holder",
+      "docs": [
+        "Выдаёт бумаги инвестору сразу после зачтённого взноса.",
+        "",
+        "Счёт держателя создаётся замороженным — таково условие выпуска, — но на",
+        "замороженный счёт нельзя начислить, поэтому регистратор размораживает",
+        "его на время начисления и тут же замораживает обратно."
+      ],
+      "discriminator": [
+        85,
+        175,
+        9,
+        233,
+        36,
+        148,
+        193,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "holder"
+        },
+        {
+          "name": "holder_token",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "holder"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "_campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "units",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "record_snapshot",
+      "docs": [
+        "Записывает снятый реестр: сколько держателей, сколько бумаг и хеш",
+        "списка. Сам список публикуется платформой — по хешу любой проверит,",
+        "что реестр не подменили задним числом."
+      ],
+      "discriminator": [
+        173,
+        85,
+        25,
+        110,
+        31,
+        124,
+        59,
+        136
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "action",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "registry"
+              },
+              {
+                "kind": "arg",
+                "path": "index"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "_campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "_index",
+          "type": "u32"
+        },
+        {
+          "name": "holders",
+          "type": "u32"
+        },
+        {
+          "name": "units",
+          "type": "u64"
+        },
+        {
+          "name": "total_amount",
+          "type": "u64"
+        },
+        {
+          "name": "register_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_bond_status",
+      "docs": [
+        "Переводит выпуск во взыскание или возвращает в обычное состояние.",
+        "Само решение принимается в `dala_capital`, здесь оно отражается на бумаге."
+      ],
+      "discriminator": [
+        47,
+        192,
+        252,
+        230,
+        162,
+        108,
+        139,
+        22
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "_campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "defaulted",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "settle_action",
+      "docs": [
+        "Отмечает действие исполненным и прикладывает подпись расчётной",
+        "транзакции из `dala_capital`. Деньги прошли там — здесь остаётся",
+        "проверяемая ссылка на них. Для голосования сюда же ложится итог."
+      ],
+      "discriminator": [
+        10,
+        58,
+        136,
+        98,
+        207,
+        113,
+        239,
+        90
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaign_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "action",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "registry"
+              },
+              {
+                "kind": "arg",
+                "path": "index"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "_campaign_id",
+          "type": "u64"
+        },
+        {
+          "name": "_index",
+          "type": "u32"
+        },
+        {
+          "name": "settlement",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "votes_for",
+          "type": "u64"
+        },
+        {
+          "name": "votes_against",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ActionRecord",
+      "discriminator": [
+        181,
+        208,
+        202,
+        70,
+        127,
+        154,
+        115,
+        80
+      ]
+    },
+    {
+      "name": "Registry",
+      "discriminator": [
+        47,
+        174,
+        110,
+        246,
+        184,
+        182,
+        252,
+        218
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "ActionClosed",
+      "discriminator": [
+        12,
+        207,
+        175,
+        173,
+        7,
+        142,
+        107,
+        78
+      ]
+    },
+    {
+      "name": "ActionDeclared",
+      "discriminator": [
+        198,
+        225,
+        223,
+        123,
+        36,
+        224,
+        144,
+        33
+      ]
+    },
+    {
+      "name": "ActionSettled",
+      "discriminator": [
+        104,
+        222,
+        224,
+        188,
+        243,
+        117,
+        196,
+        135
+      ]
+    },
+    {
+      "name": "BondIssued",
+      "discriminator": [
+        42,
+        215,
+        210,
+        134,
+        104,
+        101,
+        194,
+        60
+      ]
+    },
+    {
+      "name": "BondStatusChanged",
+      "discriminator": [
+        194,
+        110,
+        13,
+        75,
+        26,
+        105,
+        17,
+        230
+      ]
+    },
+    {
+      "name": "SnapshotRecorded",
+      "discriminator": [
+        238,
+        89,
+        139,
+        114,
+        10,
+        83,
+        172,
+        36
+      ]
+    },
+    {
+      "name": "UnitsBurned",
+      "discriminator": [
+        42,
+        95,
+        38,
+        222,
+        211,
+        129,
+        9,
+        122
+      ]
+    },
+    {
+      "name": "UnitsMinted",
+      "discriminator": [
+        132,
+        101,
+        101,
+        254,
+        218,
+        197,
+        154,
+        208
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Операцию подписал не тот ключ"
+    },
+    {
+      "code": 6001,
+      "name": "BondRedeemed",
+      "msg": "Выпуск уже погашен"
+    },
+    {
+      "code": 6002,
+      "name": "SupplyExceeded",
+      "msg": "Нельзя выпустить больше, чем предусмотрено условиями"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidAmount",
+      "msg": "Нечего выпускать или гасить: сумма должна быть больше нуля"
+    },
+    {
+      "code": 6004,
+      "name": "NotEnoughUnits",
+      "msg": "У держателя меньше бумаг, чем указано"
+    },
+    {
+      "code": 6005,
+      "name": "RecordDateNotReached",
+      "msg": "Дата фиксации ещё не наступила"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidDates",
+      "msg": "Дата фиксации должна быть раньше даты исполнения"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidActionStatus",
+      "msg": "Действие в неподходящем состоянии"
+    },
+    {
+      "code": 6008,
+      "name": "SnapshotMissing",
+      "msg": "Реестр по действию ещё не снят"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidBondParams",
+      "msg": "Условия выпуска заданы неверно"
+    },
+    {
+      "code": 6010,
+      "name": "MathOverflow",
+      "msg": "Переполнение при расчёте"
+    }
+  ],
+  "types": [
+    {
+      "name": "ActionClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "type": "u32"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "ActionStatus"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ActionDeclared",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "type": "u32"
+          },
+          {
+            "name": "kind",
+            "type": {
+              "defined": {
+                "name": "ActionKind"
+              }
+            }
+          },
+          {
+            "name": "record_ts",
+            "type": "i64"
+          },
+          {
+            "name": "payment_ts",
+            "type": "i64"
+          },
+          {
+            "name": "amount_per_unit",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ActionKind",
+      "docs": [
+        "Вид корпоративного действия. Перечисление открытое: дивиденд, выкуп или",
+        "изменение условий добавляются сюда, а механика снимка и записи не меняется."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Record"
+          },
+          {
+            "name": "Coupon"
+          },
+          {
+            "name": "Redemption"
+          },
+          {
+            "name": "Vote"
+          },
+          {
+            "name": "Default"
+          },
+          {
+            "name": "Recovery"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ActionRecord",
+      "docs": [
+        "Корпоративное действие: объявление, снятый реестр и итог."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "registry",
+            "type": "pubkey"
+          },
+          {
+            "name": "index",
+            "type": "u32"
+          },
+          {
+            "name": "kind",
+            "type": {
+              "defined": {
+                "name": "ActionKind"
+              }
+            }
+          },
+          {
+            "name": "record_ts",
+            "docs": [
+              "На кого распространяется действие: реестр снимается по состоянию на эту дату."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "payment_ts",
+            "docs": [
+              "Когда действие исполняется."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "amount_per_unit",
+            "docs": [
+              "Сумма на бумагу; у голосования — одобренный предел расходов на взыскание."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "holders",
+            "docs": [
+              "Итоги снятого реестра."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "units",
+            "type": "u64"
+          },
+          {
+            "name": "total_amount",
+            "type": "u64"
+          },
+          {
+            "name": "register_hash",
+            "docs": [
+              "Хеш опубликованного списка держателей: по нему любой проверит реестр."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "settlement",
+            "docs": [
+              "Подпись расчётной транзакции в `dala_capital` — деньги прошли там."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "votes_for",
+            "docs": [
+              "Итог голосования в бумагах; у остальных видов нули."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "votes_against",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "ActionStatus"
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ActionSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "type": "u32"
+          },
+          {
+            "name": "kind",
+            "type": {
+              "defined": {
+                "name": "ActionKind"
+              }
+            }
+          },
+          {
+            "name": "total_amount",
+            "type": "u64"
+          },
+          {
+            "name": "votes_for",
+            "type": "u64"
+          },
+          {
+            "name": "votes_against",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ActionStatus",
+      "docs": [
+        "Стадии действия. Порядок проверяет программа: записать исполнение, не сняв",
+        "реестр, нельзя — иначе «кому платили» осталось бы недоказуемым."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Declared"
+          },
+          {
+            "name": "Snapshot"
+          },
+          {
+            "name": "Settled"
+          },
+          {
+            "name": "Closed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondIssued",
+      "docs": [
+        "События — неизменная история выпуска. Состояние живёт в аккаунтах, а эти",
+        "записи остаются в транзакциях навсегда и доказывают, что и когда было."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "face_value",
+            "type": "u64"
+          },
+          {
+            "name": "coupon_rate_bps",
+            "type": "u32"
+          },
+          {
+            "name": "coupons_per_year",
+            "type": "u8"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "max_supply",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondParams",
+      "docs": [
+        "Условия выпуска. Приходят из кампании `dala_capital`, но дальше живут",
+        "самостоятельно: бумага не должна зависеть от того, что мы помним о сделке."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "face_value",
+            "type": "u64"
+          },
+          {
+            "name": "coupon_rate_bps",
+            "type": "u32"
+          },
+          {
+            "name": "coupons_per_year",
+            "type": "u8"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "max_supply",
+            "type": "u64"
+          },
+          {
+            "name": "payment_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "name": "uri",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondStatus",
+      "docs": [
+        "Жизнь выпуска. `Defaulted` — не конец: право требования живёт, пока идёт",
+        "взыскание, и бумаги гасятся только когда дело закрыто."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Defaulted"
+          },
+          {
+            "name": "Redeemed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondStatusChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "BondStatusView"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondStatusView",
+      "docs": [
+        "Отдельный вид для события: в событиях удобнее плоское перечисление."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Defaulted"
+          },
+          {
+            "name": "Redeemed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Registry",
+      "docs": [
+        "Выпуск облигации: условия бумаги и сколько её в обращении.",
+        "",
+        "Те же условия записаны в метаданные минта — там источник правды для",
+        "внешнего мира, здесь они нужны программе для проверок."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "Админ платформы: выпускает бумагу, объявляет и закрывает действия."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "docs": [
+              "Операторский ключ: кранки выпуска, прожига и снятия реестра."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "campaign_id",
+            "docs": [
+              "Номер кампании в `dala_capital`, по которой выпущена бумага."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "payment_mint",
+            "docs": [
+              "Расчётный токен кампании: справочно, деньги ходят в `dala_capital`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "face_value",
+            "docs": [
+              "Номинал одной бумаги в минимальных единицах расчётного токена."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "coupon_rate_bps",
+            "type": "u32"
+          },
+          {
+            "name": "coupons_per_year",
+            "type": "u8"
+          },
+          {
+            "name": "maturity_ts",
+            "type": "i64"
+          },
+          {
+            "name": "max_supply",
+            "docs": [
+              "Потолок выпуска: максимум сбора кампании, делённый на номинал."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "issued",
+            "docs": [
+              "Всего выпущено за всё время и сколько сейчас в обращении."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "BondStatus"
+              }
+            }
+          },
+          {
+            "name": "actions",
+            "docs": [
+              "Счётчик корпоративных действий: из него берётся номер следующего."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "mint_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SnapshotRecorded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "index",
+            "type": "u32"
+          },
+          {
+            "name": "holders",
+            "type": "u32"
+          },
+          {
+            "name": "units",
+            "type": "u64"
+          },
+          {
+            "name": "total_amount",
+            "type": "u64"
+          },
+          {
+            "name": "register_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "UnitsBurned",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "units",
+            "type": "u64"
+          },
+          {
+            "name": "outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "redemption",
+            "docs": [
+              "true — погашение бумаги, false — возврат взноса по несостоявшемуся сбору."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UnitsMinted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "campaign_id",
+            "type": "u64"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "units",
+            "type": "u64"
+          },
+          {
+            "name": "outstanding",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}
