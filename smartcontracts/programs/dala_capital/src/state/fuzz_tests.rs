@@ -95,6 +95,7 @@ fn random_deal(rng: &mut Rng) -> Deal {
         periods,
         schedule_finalized: true,
         state: DealState::Active,
+        funding_closed_ts: 0,
         total_raised,
         next_period: 0,
         overdue_principal: 0,

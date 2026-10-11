@@ -6,6 +6,8 @@ pub enum ActionsError {
     Unauthorized,
     #[msg("Выпуск уже погашен")]
     BondRedeemed,
+    #[msg("Бумаги ещё в обращении")]
+    BondsOutstanding,
     #[msg("Нельзя выпустить больше, чем предусмотрено условиями")]
     SupplyExceeded,
     #[msg("Нечего выпускать или гасить: сумма должна быть больше нуля")]

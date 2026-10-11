@@ -228,6 +228,7 @@ class Env {
           name: "Dala Bond Astana Trade",
           symbol: "DALAB1",
           uri: "https://dala.capital/bonds/1",
+          isin: "KZ0000000007",
         })
         .accountsStrict({
           authority: new PublicKey(this.admin.address),
@@ -567,6 +568,16 @@ describe("Корпоративные действия", () => {
     expect(action.amountPerUnit.toString()).to.equal(budget.toString());
   });
 
+  it("идентификатор бумаги попадает и в реестр, и в метаданные минта", async () => {
+    // В реестре он лежит ради чтения условий одним запросом, в метаданных —
+    // чтобы держатель проверил бумагу в обозревателе, не доверяя платформе.
+    expect(env.registry().isin).to.equal("KZ0000000007");
+
+    const raw = env.mintData().toString("utf8");
+    expect(raw).to.include("isin");
+    expect(raw).to.include("KZ0000000007");
+  });
+
   it("дефолт меняет статус выпуска, но бумаги остаются у держателей", async () => {
     await env.ok(env.admin, [
       await program.methods
@@ -598,6 +609,40 @@ describe("Корпоративные действия", () => {
 
     expect(env.registry().outstanding.toString()).to.equal("0");
     expect(env.registry().status).to.deep.equal({ redeemed: {} });
+  });
+
+  it("аннулированный выпуск отличим от пустого нового", async () => {
+    // Сбор не состоялся: взносы вернулись, бумаги сожжены без погашения.
+    await env.burnFrom(env.alice, 4n, false);
+    await env.burnFrom(env.bob, 6n, false);
+
+    // До аннулирования он неотличим от выпуска, в который никто не вложился.
+    expect(env.registry().status).to.deep.equal({ active: {} });
+    expect(env.registry().outstanding.toString()).to.equal("0");
+
+    await env.ok(env.admin, [
+      await program.methods
+        .cancelBond(new BN(CAMPAIGN.toString()))
+        .accountsStrict({
+          authority: new PublicKey(env.admin.address),
+          registry: registryPda(CAMPAIGN),
+        })
+        .instruction(),
+    ]);
+
+    expect(env.registry().status).to.deep.equal({ cancelled: {} });
+  });
+
+  it("выпуск с бумагами на руках аннулировать нельзя", async () => {
+    await env.fails("BondsOutstanding", env.admin, [
+      await program.methods
+        .cancelBond(new BN(CAMPAIGN.toString()))
+        .accountsStrict({
+          authority: new PublicKey(env.admin.address),
+          registry: registryPda(CAMPAIGN),
+        })
+        .instruction(),
+    ]);
   });
 
   it("действие объявляет только админ", async () => {

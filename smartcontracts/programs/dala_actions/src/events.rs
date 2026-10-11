@@ -45,6 +45,7 @@ pub enum BondStatusView {
     Active,
     Defaulted,
     Redeemed,
+    Cancelled,
 }
 
 #[event]

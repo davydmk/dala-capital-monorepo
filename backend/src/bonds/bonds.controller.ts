@@ -7,7 +7,9 @@ import {
   ParseIntPipe,
   ParseUUIDPipe,
   Post,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { Role, VoteChoice } from '@prisma/client';
 import {
   IsEnum,
@@ -89,6 +91,41 @@ export class BondsController {
     @Param('index', ParseIntPipe) index: number,
   ) {
     return serialize(await this.bonds.register(campaignId, index));
+  }
+
+  /** Список держателей таблицей: то, что регистратор отдаёт эмитенту. */
+  @Get(':campaignId/register/:index/csv')
+  async registerCsv(
+    @Param('campaignId', ParseUUIDPipe) campaignId: string,
+    @Param('index', ParseIntPipe) index: number,
+    @Res() response: Response,
+  ) {
+    const { fileName, body } = await this.bonds.registerCsv(campaignId, index);
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`,
+    );
+    response.send(body);
+  }
+
+  /**
+   * Уведомление о корпоративном действии в раскладке ISO 15022. Отдаётся
+   * файлом: его показывают депозитарию, а не парсят у себя.
+   */
+  @Get(':campaignId/actions/:index/notice')
+  async notice(
+    @Param('campaignId', ParseUUIDPipe) campaignId: string,
+    @Param('index', ParseIntPipe) index: number,
+    @Res() response: Response,
+  ) {
+    const { fileName, body } = await this.bonds.notice(campaignId, index);
+    response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`,
+    );
+    response.send(body);
   }
 
   /** Выпуск бумаги вручную — на случай, если при публикации он не прошёл. */

@@ -218,6 +218,7 @@ export interface CampaignInput {
   bondFaceValue?: string;
   bondName?: string;
   bondSymbol?: string;
+  bondIsin?: string;
   bondUri?: string;
   maxTicket?: string;
   fundingStart?: string;
@@ -1074,6 +1075,8 @@ export interface LoanPage {
     balance: string;
     /** Излишек, который можно зачесть в счёт будущих платежей. */
     advance: string;
+    /** Переплата закрытого займа: её забирают обратно. */
+    excess: string;
   };
   /** Досрочное погашение: разрешено ли, во что обойдётся и открыто ли окно. */
   prepayment: {
@@ -1217,12 +1220,18 @@ export interface BorrowerShowcase {
 
 // ── Облигации и корпоративные действия ─────────────────────────────────────
 
-export type BondStatus = 'active' | 'defaulted' | 'redeemed';
+export type BondStatus =
+  | 'active'
+  | 'defaulted'
+  | 'redeemed'
+  /** Сбор не состоялся: взносы вернулись, бумаги сожжены без погашения. */
+  | 'cancelled';
 
 export const BOND_STATUS_TITLE: Record<BondStatus, string> = {
   active: 'В обращении',
   defaulted: 'Взыскание',
   redeemed: 'Погашена',
+  cancelled: 'Сбор не состоялся',
 };
 
 /** Вид корпоративного действия: перечисление открытое, растёт вместе с рынком. */
@@ -1342,6 +1351,8 @@ export interface BondSummary {
   maxSupply: string;
   issued: string;
   outstanding: string;
+  /** Идентификатор по ISO 6166; пусто, пока не присвоен. */
+  isin: string;
   status: BondStatus;
   /** Состояние займа в `dala_capital`: по нему виден несостоявшийся сбор. */
   dealState: string;
@@ -1395,6 +1406,8 @@ export interface MyBond {
   mint: string;
   mintUrl: string;
   status: BondStatus;
+  /** Идентификатор по ISO 6166; пусто, пока не присвоен. */
+  isin: string;
   /** Состояние займа в `dala_capital`: по нему виден несостоявшийся сбор. */
   dealState: string;
   units: string;

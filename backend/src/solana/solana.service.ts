@@ -144,6 +144,8 @@ export interface OnchainDeal {
   borrowerWallet: string;
   fundingStart: number;
   fundingDeadline: number;
+  /** Когда оператор закрыл сбор; 0 — пока не закрыт. */
+  fundingClosedTs: number;
   mint: string;
   softCap: bigint;
   hardCap: bigint;
@@ -434,6 +436,7 @@ export class SolanaService implements OnModuleInit {
       borrowerWallet: account.borrowerWallet.toBase58(),
       fundingStart: Number(account.fundingStart.toString()),
       fundingDeadline: Number(account.fundingDeadline.toString()),
+      fundingClosedTs: Number(account.fundingClosedTs.toString()),
       mint: account.mint.toBase58(),
       softCap: BigInt(account.softCap.toString()),
       hardCap: BigInt(account.hardCap.toString()),
@@ -994,6 +997,42 @@ export class SolanaService implements OnModuleInit {
       eventAuthority: this.eventAuthority(),
       program: this.program.programId,
     };
+  }
+
+  /**
+   * Возвращает заёмщику то, что осталось на адресе погашения сверх долга.
+   * Пока заём идёт, излишек — это аванс в счёт будущих платежей, и контракт
+   * его не отдаёт; после закрытия займа забирать его больше нечему, и без
+   * этого вызова деньги остались бы на PDA навсегда.
+   */
+  async withdrawRepayExcess(
+    campaignId: bigint,
+    mintAddress: string,
+    borrowerWallet: string,
+  ): Promise<TransactionSignature> {
+    const deal = this.dealPda(campaignId);
+    const mint = new PublicKey(mintAddress);
+    const repayOwner = this.repayOwnerPda(deal);
+    const wallet = new PublicKey(borrowerWallet);
+    return this.program.methods
+      .withdrawRepayExcess(new BN(campaignId.toString()))
+      .accountsStrict({
+        operator: this.operator.publicKey,
+        platform: this.platformPda,
+        deal,
+        repayOwner,
+        repayToken: this.ata(repayOwner, mint),
+        borrowerWallet: wallet,
+        destination: this.ata(wallet, mint),
+        mint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        eventAuthority: this.eventAuthority(),
+        program: this.program.programId,
+      })
+      .signers([this.operator])
+      .rpc();
   }
 
   // ── Дефолт и взыскание ───────────────────────────────────────────────────

@@ -45,6 +45,8 @@ export class UpdateCampaignDto {
   /// влезает 32 символа названия — больше токен-программа не примет.
   @IsOptional() @IsString() @Length(1, 32) bondName?: string;
   @IsOptional() @IsString() @Length(1, 10) bondSymbol?: string;
+  /// Идентификатор по ISO 6166: двенадцать знаков с контрольной цифрой.
+  @IsOptional() @IsString() @Length(12, 12) bondIsin?: string;
   @IsOptional() @IsString() @Length(0, 200) bondUri?: string;
   @IsOptional() @IsString() maxTicket?: string;
 

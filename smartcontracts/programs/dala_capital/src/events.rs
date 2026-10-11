@@ -180,3 +180,10 @@ pub struct DepositWithdrawn {
     pub amount: u64,
     pub closed: bool,
 }
+
+/// Заёмщику вернули переплату с адреса погашения после закрытия займа.
+#[event]
+pub struct RepayExcessWithdrawn {
+    pub campaign_id: u64,
+    pub amount: u64,
+}

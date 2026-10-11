@@ -156,6 +156,61 @@ export type DalaActions = {
       ]
     },
     {
+      "name": "cancelBond",
+      "docs": [
+        "Аннулирует выпуск: сбор не состоялся, взносы вернулись, бумаги сожжены",
+        "без погашения. Отдельное состояние нужно потому, что иначе такой выпуск",
+        "в сети неотличим от пустого нового — у обоих ноль в обращении."
+      ],
+      "discriminator": [
+        81,
+        78,
+        26,
+        248,
+        139,
+        167,
+        249,
+        246
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "campaignId"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "campaignId",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "closeAction",
       "docs": [
         "Закрывает действие. Снимок реестра закрывается сразу после записи:",
@@ -996,46 +1051,51 @@ export type DalaActions = {
     },
     {
       "code": 6002,
+      "name": "bondsOutstanding",
+      "msg": "Бумаги ещё в обращении"
+    },
+    {
+      "code": 6003,
       "name": "supplyExceeded",
       "msg": "Нельзя выпустить больше, чем предусмотрено условиями"
     },
     {
-      "code": 6003,
+      "code": 6004,
       "name": "invalidAmount",
       "msg": "Нечего выпускать или гасить: сумма должна быть больше нуля"
     },
     {
-      "code": 6004,
+      "code": 6005,
       "name": "notEnoughUnits",
       "msg": "У держателя меньше бумаг, чем указано"
     },
     {
-      "code": 6005,
+      "code": 6006,
       "name": "recordDateNotReached",
       "msg": "Дата фиксации ещё не наступила"
     },
     {
-      "code": 6006,
+      "code": 6007,
       "name": "invalidDates",
       "msg": "Дата фиксации должна быть раньше даты исполнения"
     },
     {
-      "code": 6007,
+      "code": 6008,
       "name": "invalidActionStatus",
       "msg": "Действие в неподходящем состоянии"
     },
     {
-      "code": 6008,
+      "code": 6009,
       "name": "snapshotMissing",
       "msg": "Реестр по действию ещё не снят"
     },
     {
-      "code": 6009,
+      "code": 6010,
       "name": "invalidBondParams",
       "msg": "Условия выпуска заданы неверно"
     },
     {
-      "code": 6010,
+      "code": 6011,
       "name": "mathOverflow",
       "msg": "Переполнение при расчёте"
     }
@@ -1389,6 +1449,14 @@ export type DalaActions = {
           {
             "name": "uri",
             "type": "string"
+          },
+          {
+            "name": "isin",
+            "docs": [
+              "Идентификатор бумаги по ISO 6166 — двенадцать знаков с контрольной",
+              "цифрой. Для биржи бумага без него не бумага."
+            ],
+            "type": "string"
           }
         ]
       }
@@ -1410,6 +1478,9 @@ export type DalaActions = {
           },
           {
             "name": "redeemed"
+          },
+          {
+            "name": "cancelled"
           }
         ]
       }
@@ -1450,6 +1521,9 @@ export type DalaActions = {
           },
           {
             "name": "redeemed"
+          },
+          {
+            "name": "cancelled"
           }
         ]
       }
@@ -1522,6 +1596,15 @@ export type DalaActions = {
               "Потолок выпуска: максимум сбора кампании, делённый на номинал."
             ],
             "type": "u64"
+          },
+          {
+            "name": "isin",
+            "docs": [
+              "Идентификатор бумаги по ISO 6166; пусто, пока не присвоен. Лежит и",
+              "здесь, и в метаданных минта: читать условия выпуска одним запросом",
+              "удобнее, а расходиться им неоткуда — пишутся вместе."
+            ],
+            "type": "string"
           },
           {
             "name": "issued",

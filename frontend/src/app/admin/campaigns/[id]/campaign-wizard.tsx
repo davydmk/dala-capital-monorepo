@@ -129,6 +129,7 @@ interface FormState {
   bondFaceValue: string;
   bondName: string;
   bondSymbol: string;
+  bondIsin: string;
   bondUri: string;
   maxTicket: string;
   annualRate: string;
@@ -159,6 +160,7 @@ const toForm = (campaign: Campaign): FormState => ({
   bondFaceValue: fromMicro(campaign.bondFaceValue, false),
   bondName: campaign.bondName ?? '',
   bondSymbol: campaign.bondSymbol ?? '',
+  bondIsin: campaign.bondIsin ?? '',
   bondUri: campaign.bondUri ?? '',
   maxTicket: fromMicro(campaign.maxTicket, false),
   annualRate: bpsToPercent(campaign.annualRateBps),
@@ -189,6 +191,7 @@ const toInput = (form: FormState): CampaignInput => ({
   bondFaceValue: form.bondFaceValue ? toMicro(form.bondFaceValue) : undefined,
   bondName: form.bondName.trim() || undefined,
   bondSymbol: form.bondSymbol.trim() || undefined,
+  bondIsin: form.bondIsin.trim().toUpperCase() || undefined,
   bondUri: form.bondUri.trim() || undefined,
   maxTicket: toMicro(form.maxTicket || '0'),
   annualRateBps: form.annualRate ? percentToBps(form.annualRate) : undefined,
@@ -488,6 +491,13 @@ export function CampaignWizard({ campaign }: { campaign: Campaign }) {
                   hint="Короткое обозначение в обозревателе, до 10 символов"
                   value={form.bondSymbol}
                   onChange={(event) => set('bondSymbol', event.target.value)}
+                />
+                <Field
+                  label="ISIN"
+                  placeholder="KZ0000000007"
+                  hint="Идентификатор бумаги по ISO 6166. Уходит в метаданные минта и после выпуска не меняется; пусто — если код ещё не присвоен"
+                  value={form.bondIsin}
+                  onChange={(event) => set('bondIsin', event.target.value)}
                 />
                 <Field
                   label="Ссылка на выпуск"

@@ -207,4 +207,11 @@ pub mod dala_capital {
     ) -> Result<()> {
         instructions::withdraw::handle_withdraw_deposit(ctx, campaign_id, user_id)
     }
+
+    pub fn withdraw_repay_excess(
+        ctx: Context<WithdrawRepayExcess>,
+        campaign_id: u64,
+    ) -> Result<()> {
+        instructions::withdraw::handle_withdraw_repay_excess(ctx, campaign_id)
+    }
 }

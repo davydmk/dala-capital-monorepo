@@ -20,7 +20,8 @@ function serialize<T>(value: T): T {
   ) as T;
 }
 
-const DAYS_30 = 30 * 24 * 60 * 60 * 1000;
+/** Окно, за которое считается собранное: в секундах, как время в сделке. */
+const DAYS_30 = 30 * 24 * 60 * 60;
 
 /**
  * Дашборд админа. Состояние кампаний живёт в контракте, поэтому считается из
@@ -36,7 +37,7 @@ export class DashboardController {
 
   @Get('dashboard')
   async dashboard() {
-    const [campaigns, pendingKyc, closed] = await Promise.all([
+    const [campaigns, pendingKyc] = await Promise.all([
       this.prisma.campaign.findMany({
         where: { state: CampaignState.PUBLISHED, onchainId: { not: null } },
         select: {
@@ -49,21 +50,15 @@ export class DashboardController {
         },
       }),
       this.prisma.investor.count({ where: { status: KycStatus.PENDING } }),
-      // Закрытые сборы берём из журнала: момента закрытия в контракте нет.
-      this.prisma.adminAction.findMany({
-        where: {
-          action: 'closeFunding',
-          createdAt: { gte: new Date(Date.now() - DAYS_30) },
-        },
-        select: { target: true },
-      }),
     ]);
 
     const deals = await this.solana.deals(
       campaigns.map((campaign) => BigInt(campaign.onchainId!)),
     );
     const now = Math.floor(Date.now() / 1000);
-    const closedIds = new Set(closed.map((action) => action.target));
+    // Момент закрытия сбора теперь лежит в самой сделке. Раньше его брали из
+    // журнала платформы — то есть считали по её же записям о себе.
+    const since = now - DAYS_30;
 
     let funding = 0;
     let raised = 0n;
@@ -80,7 +75,7 @@ export class DashboardController {
         now,
       });
       if (status === 'FUNDING') funding += 1;
-      if (closedIds.has(campaign.id)) raised += deal.totalRaised;
+      if (deal.fundingClosedTs >= since) raised += deal.totalRaised;
 
       if (status === 'OVERDUE' || status === 'DEFAULT') {
         overdue.push({

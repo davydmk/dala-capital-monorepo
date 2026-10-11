@@ -32,7 +32,9 @@ export interface BondRegistry {
   maxSupply: bigint;
   issued: bigint;
   outstanding: bigint;
-  status: 'active' | 'defaulted' | 'redeemed';
+  status: 'active' | 'defaulted' | 'redeemed' | 'cancelled';
+  /** Идентификатор по ISO 6166; пусто, пока не присвоен. */
+  isin: string;
 }
 
 /** Корпоративное действие из журнала. */
@@ -189,6 +191,7 @@ export class BondProgramService implements OnModuleInit {
       issued: BigInt(account.issued.toString()),
       outstanding: BigInt(account.outstanding.toString()),
       status: Object.keys(account.status)[0] as BondRegistry['status'],
+      isin: account.isin,
     };
   }
 
@@ -308,6 +311,7 @@ export class BondProgramService implements OnModuleInit {
       name: string;
       symbol: string;
       uri: string;
+      isin: string;
     },
   ): Promise<TransactionSignature> {
     return this.program.methods
@@ -322,6 +326,7 @@ export class BondProgramService implements OnModuleInit {
         name: params.name,
         symbol: params.symbol,
         uri: params.uri,
+        isin: params.isin,
       })
       .accountsStrict({
         authority: this.admin.publicKey,
@@ -384,6 +389,20 @@ export class BondProgramService implements OnModuleInit {
   ): Promise<TransactionSignature> {
     return this.program.methods
       .setBondStatus(new BN(campaignId.toString()), defaulted)
+      .accountsStrict({
+        authority: this.admin.publicKey,
+        registry: this.registryPda(campaignId),
+      })
+      .rpc();
+  }
+
+  /**
+   * Аннулирует выпуск: сбор не состоялся, бумаги сожжены без погашения.
+   * Контракт требует, чтобы в обращении уже ничего не было.
+   */
+  cancelBond(campaignId: bigint): Promise<TransactionSignature> {
+    return this.program.methods
+      .cancelBond(new BN(campaignId.toString()))
       .accountsStrict({
         authority: this.admin.publicKey,
         registry: this.registryPda(campaignId),

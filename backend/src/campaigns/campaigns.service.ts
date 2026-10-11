@@ -419,6 +419,9 @@ export class CampaignsService {
       });
     }
     await this.events.sync(campaign.id, onchainId).catch(() => 0);
+    // Размещение, на которое не было спроса, аннулирует выпуск сразу: бумаг
+    // никто не получил, и ждать, пока их кто-то вернёт, бессмысленно.
+    await this.bonds.cancelIfEmpty(campaign.id);
     return this.onchain(id);
   }
 

@@ -26,10 +26,20 @@ import {
   type HolderRow,
 } from './entitlements.js';
 import {
+  buildNotice,
+  noticeAvailable,
+  noticeFileName,
+  type NoticeInput,
+} from './mt564.js';
+import {
   BondProgramService,
   type ActionKind,
   type BondRegistry,
 } from './bond-program.service.js';
+
+/** Excel ждёт разрыв строки Windows и BOM, иначе кириллица — кракозябры. */
+const CRLF = '\r\n';
+const BOM = '\ufeff';
 
 /** Кворум голосования: решение считается принятым от половины выпуска. */
 const QUORUM_BPS = 5_000;
@@ -91,6 +101,8 @@ export class BondsService {
       symbol: (campaign.bondSymbol ?? `DALA${campaign.onchainId}`).slice(0, 10),
       uri:
         campaign.bondUri ?? `https://dala.capital/bonds/${campaign.onchainId}`,
+      // Пусто допустимо: бумага может выпускаться до присвоения кода.
+      isin: campaign.bondIsin ?? '',
     });
     this.logger.log(`Выпущена облигация по кампании ${campaignId}`);
     return signature;
@@ -184,6 +196,10 @@ export class BondsService {
           `Не удалось сжечь бумаги при возврате по ${campaignId}: ${String(error)}`,
         ),
       );
+
+    // Последний держатель забрал взнос — выпуск аннулируется в сети. Раньше
+    // этого момента нельзя: контракт не даст, пока бумаги на руках.
+    await this.cancelIfEmpty(campaignId);
   }
 
   /**
@@ -276,6 +292,37 @@ export class BondsService {
       .catch((error: unknown) =>
         this.logger.error(
           `Не удалось сменить статус выпуска ${campaignId}: ${String(error)}`,
+        ),
+      );
+  }
+
+  /**
+   * Аннулирует выпуск, у которого не осталось бумаг. Нужно в двух случаях:
+   * последний держатель забрал взнос — и размещение, на которое вообще не
+   * было спроса. Во втором забирать некому, и без этого вызова выпуск навсегда
+   * остался бы действующим с нулём бумаг в обращении.
+   *
+   * Молчит, если бумаги на руках: контракт такой выпуск не отпустит.
+   */
+  async cancelIfEmpty(campaignId: string): Promise<void> {
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+    if (!campaign?.onchainId || campaign.scheduleKind !== ScheduleKind.COUPON) {
+      return;
+    }
+
+    const onchainId = BigInt(campaign.onchainId);
+    const registry = await this.bonds.registry(onchainId);
+    if (!registry || registry.status !== 'active' || registry.outstanding > 0n) {
+      return;
+    }
+
+    await this.bonds
+      .cancelBond(onchainId)
+      .catch((error: unknown) =>
+        this.logger.error(
+          `Не удалось аннулировать выпуск ${campaignId}: ${String(error)}`,
         ),
       );
   }
@@ -752,6 +799,7 @@ export class BondsService {
           mint: registry.mint,
           mintUrl: this.bonds.explorerToken(registry.mint),
           status: registry.status,
+          isin: registry.isin,
           dealState: deals.get(String(campaign.onchainId))?.state ?? 'unknown',
           units,
           faceValue: registry.faceValue,
@@ -823,6 +871,87 @@ export class BondsService {
       hash: snapshot.hash,
       holders: snapshot.holders,
     };
+  }
+
+  /**
+   * Список держателей таблицей. Разделитель — точка с запятой, в начале BOM:
+   * иначе Excel откроет кириллицу кракозябрами, как и в графике платежей.
+   */
+  async registerCsv(campaignId: string, index: number) {
+    const { campaign } = await this.bondCampaign(campaignId);
+    const snapshot = await this.prisma.bondSnapshot.findUnique({
+      where: { campaignId_actionIndex: { campaignId, actionIndex: index } },
+    });
+    if (!snapshot) throw new NotFoundException('Список ещё не составлен');
+
+    const rows = snapshot.holders as {
+      holder: string;
+      tokenAccount: string;
+      units: string;
+      amount: string;
+    }[];
+    const money = (value: string) => {
+      const unit = 10n ** BigInt(campaign.mintDecimals);
+      const amount = BigInt(value);
+      const fraction = (amount % unit)
+        .toString()
+        .padStart(campaign.mintDecimals, '0')
+        .slice(0, 2);
+      return `${amount / unit},${fraction}`;
+    };
+
+    const body = [
+      ['Держатель', 'Токен-счёт', 'Бумаг', 'Причитается'].join(';'),
+      ...rows.map((row) =>
+        [row.holder, row.tokenAccount, row.units, money(row.amount)].join(';'),
+      ),
+      [
+        'Итого',
+        '',
+        snapshot.units.toString(),
+        money(String(snapshot.totalAmount)),
+      ].join(';'),
+    ].join(CRLF);
+
+    return {
+      fileName: `register-${campaign.onchainId}-${index}.csv`,
+      body: BOM + body + CRLF,
+    };
+  }
+
+  /**
+   * Уведомление о корпоративном действии в раскладке ISO 15022. Всё, что
+   * нужно, уже лежит в записи действия и в реестре — считать нечего,
+   * остаётся разложить по полям.
+   */
+  async notice(campaignId: string, index: number) {
+    const { campaign, onchainId, registry } =
+      await this.bondCampaign(campaignId);
+    const action = await this.bonds.action(onchainId, index);
+    if (!action) throw new NotFoundException('Действие не найдено');
+    if (!noticeAvailable(action.kind)) {
+      throw new BadRequestException(
+        'У этого вида действия нет кода события по ISO 15022: выгружать нечего',
+      );
+    }
+
+    const input: NoticeInput = {
+      onchainId: onchainId.toString(),
+      index,
+      kind: action.kind,
+      status: action.status,
+      recordTs: action.recordTs,
+      paymentTs: action.paymentTs,
+      amountPerUnit: action.amountPerUnit,
+      units: action.units,
+      registerHash: action.registerHash,
+      settlement: action.settlement,
+      isin: registry.isin,
+      title: campaign.title,
+      mint: registry.mint,
+      decimals: campaign.mintDecimals,
+    };
+    return { fileName: noticeFileName(input), body: buildNotice(input) };
   }
 
   // ── Вспомогательное ──────────────────────────────────────────────────────

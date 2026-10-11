@@ -92,7 +92,12 @@ export function BondsView() {
               >
                 {bond.title}
               </Link>
-              <p className="text-sm text-muted">{bond.borrower.name}</p>
+              <p className="text-sm text-muted">
+                {bond.borrower.name}
+                {bond.isin ? (
+                  <span className="ml-2 font-mono text-xs">{bond.isin}</span>
+                ) : null}
+              </p>
             </div>
             <BondStatusBadge status={bond.status} dealState={bond.dealState} />
           </div>

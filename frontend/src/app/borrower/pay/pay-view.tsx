@@ -49,6 +49,10 @@ export function PayView() {
     mutationFn: () => api.loans.advance(id),
     onSuccess: save,
   });
+  const excess = useMutation<LoanPage, ApiError, void>({
+    mutationFn: () => api.loans.excess(id),
+    onSuccess: save,
+  });
 
   if (loans.isPending) {
     return <p className="text-sm text-muted">Загружаем займы…</p>;
@@ -72,7 +76,8 @@ export function PayView() {
 
   const data = loan.data;
   const decimals = data?.campaign.mintDecimals ?? 6;
-  const result = repay.data?.result ?? advance.data?.result;
+  const result =
+    repay.data?.result ?? advance.data?.result ?? excess.data?.result;
 
   return (
     <div className="space-y-4">
@@ -171,6 +176,38 @@ export function PayView() {
           </Card>
 
           <PrepayBlock id={id} data={data} onDone={save} />
+
+          {data.repay.excess !== '0' ? (
+            <Card>
+              <CardTitle>Переплата на адресе</CardTitle>
+              <p className="text-sm text-muted">
+                Заём закрыт, а на адресе погашения осталось{' '}
+                {formatMoney(data.repay.excess, decimals)}. Платить больше
+                нечего, поэтому эти деньги возвращаются на ваш кошелёк
+                получения — тот же, на который приходил заём.
+              </p>
+              {excess.isError ? (
+                <div className="mt-3">
+                  <Notice tone="danger" title={excess.error.message} />
+                </div>
+              ) : null}
+              <Button
+                className="mt-3"
+                loading={excess.isPending}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Забрать ${formatMoney(data.repay.excess, decimals)} на кошелёк получения?`,
+                    )
+                  ) {
+                    excess.mutate();
+                  }
+                }}
+              >
+                Забрать переплату
+              </Button>
+            </Card>
+          ) : null}
 
           {data.repay.advance !== '0' ? (
             <Card>

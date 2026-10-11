@@ -113,6 +113,24 @@ export function checkCampaign(
       Boolean(campaign.bondName?.trim() && campaign.bondSymbol?.trim()),
       'Заполните название и тикер бумаги: они уходят в метаданные минта при публикации и после неё не меняются',
     );
+    // ISIN необязателен — его может не быть на момент выпуска, — но если
+    // введён, то неверный хуже отсутствующего: он уйдёт в минт навсегда.
+    add(
+      'bondIsin',
+      'Идентификатор бумаги корректен',
+      !campaign.bondIsin || isValidIsin(campaign.bondIsin),
+      'ISIN не сходится по контрольной цифре: проверьте код или оставьте поле пустым',
+    );
+    // Досрочного погашения у облигации нет, значит и комиссии за него быть
+    // не может: контракт такую кампанию отвергает. Мастер подставляет ноль
+    // сам, но через API поле можно заполнить, и тогда без этой проверки
+    // публикация падала бы на стороне контракта без объяснений.
+    add(
+      'prepaymentFee',
+      'Комиссия за досрочное погашение не задана',
+      !campaign.prepaymentFeeBps,
+      'У облигации досрочного погашения нет: комиссия за него должна быть нулевой',
+    );
   }
 
   const start = campaign.fundingStart;
@@ -146,3 +164,30 @@ export const allChecksPassed = (checks: CampaignCheck[]) =>
 /** Первая непройденная проверка — её и показываем в ошибке публикации. */
 export const firstFailure = (checks: CampaignCheck[]) =>
   checks.find((check) => !check.ok);
+
+/**
+ * Проверка ISIN по ISO 6166: две буквы страны, девять знаков и контрольная
+ * цифра по Луну. Буквы раскрываются в числа (A=10 … Z=35), дальше обычная
+ * проверка с удвоением каждой второй цифры справа.
+ */
+export function isValidIsin(value: string): boolean {
+  const code = value.trim().toUpperCase();
+  if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(code)) return false;
+
+  const digits = [...code.slice(0, 11)]
+    .map((char) =>
+      /[0-9]/.test(char)
+        ? char
+        : String(char.charCodeAt(0) - 'A'.charCodeAt(0) + 10),
+    )
+    .join('');
+
+  let sum = 0;
+  // Удваивается каждая вторая цифра, считая справа от контрольной.
+  for (let i = 0; i < digits.length; i++) {
+    const digit = Number(digits[digits.length - 1 - i]);
+    const doubled = i % 2 === 0 ? digit * 2 : digit;
+    sum += doubled > 9 ? doubled - 9 : doubled;
+  }
+  return (10 - (sum % 10)) % 10 === Number(code[11]);
+}

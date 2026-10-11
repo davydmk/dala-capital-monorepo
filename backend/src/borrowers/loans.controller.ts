@@ -74,6 +74,16 @@ export class LoansController {
     return serialize(await this.loans.advance(session.sub, id));
   }
 
+  /** «Забрать переплату»: остаток с адреса погашения после закрытия займа. */
+  @Post('loans/:id/excess')
+  @HttpCode(200)
+  async excess(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() session: SessionPayload,
+  ) {
+    return serialize(await this.loans.withdrawExcess(session.sub, id));
+  }
+
   /** Предпросмотр частичного досрочного погашения: сумма к переводу и новый график. */
   @Post('loans/:id/prepay/quote')
   @HttpCode(200)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkCampaign } from './validation.js';
+import { checkCampaign, isValidIsin } from './validation.js';
 
 const HOUR = 60 * 60;
 const now = new Date('2026-10-04T12:00:00Z');
@@ -61,6 +61,15 @@ describe('проверки перед публикацией', () => {
     );
   });
 
+  it('у облигации комиссия за досрочное погашение запрещена', () => {
+    const failed = check(
+      withBorrower({ prepaymentFeeBps: 100 }),
+      'prepaymentFee',
+    );
+    expect(failed?.ok).toBe(false);
+    expect(failed?.hint).toContain('досрочного погашения нет');
+  });
+
   it('у кредита метаданные бумаги не спрашивают', () => {
     const campaign = withBorrower({
       scheduleKind: 'ANNUITY',
@@ -68,10 +77,31 @@ describe('проверки перед публикацией', () => {
       bondSymbol: null,
     });
     expect(check(campaign, 'bondMetadata')).toBeUndefined();
+    expect(check(campaign, 'prepaymentFee')).toBeUndefined();
     expect(
       checkCampaign(campaign, { mintAllowed: true, now }).every(
         (item) => item.ok,
       ),
     ).toBe(true);
+  });
+});
+
+describe('ISIN по ISO 6166', () => {
+  it('принимает коды с верной контрольной цифрой', () => {
+    // Примеры из стандарта: Apple, Treasury и BAE Systems.
+    expect(isValidIsin('US0378331005')).toBe(true);
+    expect(isValidIsin('US9128285M81')).toBe(true);
+    expect(isValidIsin('GB0002634946')).toBe(true);
+  });
+
+  it('ловит опечатку в любой позиции', () => {
+    expect(isValidIsin('US0378331006')).toBe(false);
+    expect(isValidIsin('US0378331105')).toBe(false);
+  });
+
+  it('требует две буквы страны и двенадцать знаков', () => {
+    expect(isValidIsin('0S0378331005')).toBe(false);
+    expect(isValidIsin('US037833100')).toBe(false);
+    expect(isValidIsin('US03783310050')).toBe(false);
   });
 });

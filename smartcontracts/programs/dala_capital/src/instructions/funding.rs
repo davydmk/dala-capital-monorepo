@@ -301,6 +301,7 @@ pub fn handle_close_funding(ctx: Context<CloseFunding>, campaign_id: u64) -> Res
 
     if !finalized || total_raised < soft_cap {
         ctx.accounts.deal.state = DealState::Failed;
+        ctx.accounts.deal.funding_closed_ts = now;
         emit_cpi!(FundingFailed {
             campaign_id,
             total_raised,
@@ -348,6 +349,9 @@ pub fn handle_close_funding(ctx: Context<CloseFunding>, campaign_id: u64) -> Res
         deal.state = DealState::Active;
         deal.next_period = 0;
         deal.last_accrual_ts = deadline;
+        // Начало графика считается от дедлайна, а закрыт сбор мог быть позже:
+        // это разные моменты, и в журнале нужен именно второй.
+        deal.funding_closed_ts = now;
     }
 
     emit_cpi!(FundingClosed {

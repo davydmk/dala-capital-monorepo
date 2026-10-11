@@ -334,6 +334,11 @@ export const api = {
       request<LoanPage>(`/borrowers/me/loans/${id}/advance`, {
         method: 'POST',
       }),
+    /** Забирает переплату с адреса погашения после закрытия займа. */
+    excess: (id: string) =>
+      request<LoanPage>(`/borrowers/me/loans/${id}/excess`, {
+        method: 'POST',
+      }),
     profile: () => request<BorrowerProfile>('/borrowers/me/profile'),
 
     /** Предпросмотр частичного досрочного погашения: сумма и новый график. */
@@ -434,6 +439,12 @@ export const api = {
     /** Опубликованный реестр держателей: по нему проверяется хеш из сети. */
     registerUrl: (campaignId: string, index: number) =>
       `/api/bonds/${campaignId}/register/${index}`,
+    /** Тот же список держателей таблицей — как отчёт регистратора. */
+    registerCsvUrl: (campaignId: string, index: number) =>
+      `/api/bonds/${campaignId}/register/${index}/csv`,
+    /** Уведомление о корпоративном действии в раскладке ISO 15022. */
+    noticeUrl: (campaignId: string, index: number) =>
+      `/api/bonds/${campaignId}/actions/${index}/notice`,
     issue: (campaignId: string) =>
       request<BondPage>(`/bonds/${campaignId}/issue`, { method: 'POST' }),
     declare: (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ExternalLink, Flame } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import clsx from 'clsx';
@@ -25,6 +25,7 @@ import {
 } from '@/components/money';
 import {
   Button,
+  buttonStyles,
   Card,
   CardTitle,
   Field,
@@ -186,6 +187,12 @@ export function BondPageView({ id }: { id: string }) {
           их в кошельке, не доверяя платформе. Бумага именная — счета держателей
           заморожены, и передать её может только регистратор.
         </p>
+        {registry.isin ? (
+          <p className="mb-3 text-sm">
+            <span className="text-muted">ISIN</span>{' '}
+            <span className="font-mono font-medium">{registry.isin}</span>
+          </p>
+        ) : null}
         <div className="mb-3 rounded-lg border border-border p-3">
           <Copyable value={registry.mint} />
         </div>
@@ -321,6 +328,13 @@ export function BondPageView({ id }: { id: string }) {
                         className="text-accent hover:underline"
                       >
                         опубликованный список
+                      </a>{' '}
+                      ·{' '}
+                      <a
+                        href={api.bonds.registerCsvUrl(id, action.index)}
+                        className="text-accent hover:underline"
+                      >
+                        CSV
                       </a>
                       {/* До исполнения в сети нули: показываем подсчёт платформы
                         и говорим, что он предварительный. */}
@@ -390,6 +404,16 @@ export function BondPageView({ id }: { id: string }) {
                       >
                         Закрыть
                       </Button>
+                    ) : null}
+                    {/* Уведомление выгружается у тех видов, у которых есть код
+                        события по ISO 15022: у реестра без выплаты его нет. */}
+                    {action.kind !== 'record' ? (
+                      <a
+                        href={api.bonds.noticeUrl(id, action.index)}
+                        className={buttonStyles('secondary')}
+                      >
+                        <Download size={16} aria-hidden /> Уведомление MT
+                      </a>
                     ) : null}
                   </div>
 

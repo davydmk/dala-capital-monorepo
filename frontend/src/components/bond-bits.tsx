@@ -20,6 +20,7 @@ const BOND_STYLE: Record<BondStatus, string> = {
   active: 'border-transparent bg-accent-soft text-accent',
   defaulted: 'border-transparent bg-danger-soft text-danger',
   redeemed: 'border-border text-muted',
+  cancelled: 'border-border text-muted',
 };
 
 /**
@@ -34,7 +35,10 @@ export function BondStatusBadge({
   status: BondStatus;
   dealState?: string;
 }) {
-  const cancelled = status === 'active' && dealState === 'failed';
+  // С появлением `cancelled` в контракте состояние приходит из сети. Подмена
+  // по состоянию займа осталась для выпусков, сделанных до этой правки.
+  const cancelled =
+    status === 'cancelled' || (status === 'active' && dealState === 'failed');
   return (
     <span
       className={clsx(

@@ -117,7 +117,12 @@ export function BondsList() {
                     dealState={bond.dealState}
                   />
                 </div>
-                <p className="mt-1 text-sm text-muted">{bond.borrower.name}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {bond.borrower.name}
+                  {bond.isin ? (
+                    <span className="ml-2 font-mono text-xs">{bond.isin}</span>
+                  ) : null}
+                </p>
 
                 <dl className="mt-3 grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
                   <Cell

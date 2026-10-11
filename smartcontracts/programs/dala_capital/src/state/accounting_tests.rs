@@ -108,6 +108,7 @@ fn active_deal(schedule_type: ScheduleType, n: usize) -> Deal {
         schedule_finalized: true,
         state: DealState::Active,
         total_raised: TOTAL,
+        funding_closed_ts: 0,
         next_period: 0,
         overdue_principal: 0,
         overdue_scheduled_interest: 0,

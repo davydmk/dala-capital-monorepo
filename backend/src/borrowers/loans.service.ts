@@ -170,8 +170,19 @@ export class LoansService {
         address: repayAddress,
         url: this.solana.explorerAddress(repayAddress),
         balance,
-        /** Излишек, который можно зачесть в счёт будущих платежей. */
-        advance: balance > due.total ? balance - due.total : 0n,
+        /**
+         * Излишек, который можно зачесть в счёт будущих платежей. У закрытого
+         * займа будущих платежей нет, и тот же остаток — уже переплата.
+         */
+        advance:
+          deal.state === 'active' && balance > due.total
+            ? balance - due.total
+            : 0n,
+        /**
+         * Переплата закрытого займа: платить больше нечего, и её забирают
+         * обратно на кошелёк получения.
+         */
+        excess: deal.state === 'repaid' ? balance : 0n,
       },
       /**
        * Досрочное погашение: разрешено ли, во что обойдётся полное и открыто
@@ -296,6 +307,53 @@ export class LoansService {
    */
   advance(userId: string, campaignId: string) {
     return this.process(userId, campaignId, true);
+  }
+
+  /**
+   * Забирает переплату с адреса погашения. Пока заём идёт, излишек — аванс в
+   * счёт будущих платежей, и контракт его не отдаёт; после закрытия займа
+   * платить больше нечего, и без этого вызова деньги остались бы на PDA
+   * навсегда. Уходят они на кошелёк получения — тот же, что принимал заём.
+   */
+  async withdrawExcess(userId: string, campaignId: string) {
+    const { deal, onchainId, mint } = await this.loan(userId, campaignId);
+    if (deal.state !== 'repaid') {
+      throw new BadRequestException(
+        'Переплату можно забрать только после закрытия займа: пока он идёт, она зачтётся в счёт будущих платежей',
+      );
+    }
+
+    const address = this.solana.repayAddress(onchainId, mint);
+    const before = await this.solana.tokenBalance(address);
+    if (before === 0n) {
+      return this.withResult(userId, campaignId, {
+        received: 0n,
+        message: 'Забирать нечего: на адресе погашения пусто',
+      });
+    }
+
+    let result: RepayResult;
+    try {
+      await this.solana.withdrawRepayExcess(
+        onchainId,
+        mint,
+        deal.borrowerWallet,
+      );
+      const after = await this.solana.tokenBalance(address);
+      result = {
+        received: before - after,
+        message: 'Переплата отправлена на кошелёк получения',
+      };
+    } catch (error) {
+      const failure = explainFailure(error);
+      this.logger.warn(
+        `Возврат переплаты по кампании ${campaignId} не прошёл: ${failure.code} — ${String(error)}`,
+      );
+      result = { received: 0n, message: failure.reason };
+    }
+
+    await this.events.sync(campaignId, onchainId).catch(() => 0);
+    return this.withResult(userId, campaignId, result);
   }
 
   private async process(

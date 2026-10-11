@@ -46,6 +46,9 @@ pub const REGISTRY_SEED: &[u8] = b"registry";
 pub const MINT_SEED: &[u8] = b"bond";
 pub const ACTION_SEED: &[u8] = b"action";
 
+/// Длина ISIN по ISO 6166: две буквы страны, девять знаков и контрольная цифра.
+pub const ISIN_LEN: usize = 12;
+
 /// Условия выпуска. Приходят из кампании `dala_capital`, но дальше живут
 /// самостоятельно: бумага не должна зависеть от того, что мы помним о сделке.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -60,6 +63,9 @@ pub struct BondParams {
     pub name: String,
     pub symbol: String,
     pub uri: String,
+    /// Идентификатор бумаги по ISO 6166 — двенадцать знаков с контрольной
+    /// цифрой. Для биржи бумага без него не бумага.
+    pub isin: String,
 }
 
 #[program]
@@ -73,7 +79,10 @@ pub mod dala_actions {
             params.face_value > 0
                 && params.max_supply > 0
                 && params.coupons_per_year > 0
-                && params.coupon_rate_bps > 0,
+                && params.coupon_rate_bps > 0
+                // Пусто допускаем: бумага может выпускаться до присвоения
+                // идентификатора. Длину сверяем, чтобы в метаданные не уехал мусор.
+                && (params.isin.is_empty() || params.isin.len() == ISIN_LEN),
             ActionsError::InvalidBondParams
         );
 
@@ -200,6 +209,7 @@ pub mod dala_actions {
         registry.coupons_per_year = params.coupons_per_year;
         registry.maturity_ts = params.maturity_ts;
         registry.max_supply = params.max_supply;
+        registry.isin = params.isin.clone();
         registry.issued = 0;
         registry.outstanding = 0;
         registry.status = BondStatus::Active;
@@ -359,6 +369,27 @@ pub mod dala_actions {
             } else {
                 BondStatusView::Active
             },
+        });
+        Ok(())
+    }
+
+    /// Аннулирует выпуск: сбор не состоялся, взносы вернулись, бумаги сожжены
+    /// без погашения. Отдельное состояние нужно потому, что иначе такой выпуск
+    /// в сети неотличим от пустого нового — у обоих ноль в обращении.
+    pub fn cancel_bond(ctx: Context<AdminOnly>, _campaign_id: u64) -> Result<()> {
+        let registry = &mut ctx.accounts.registry;
+        require!(
+            registry.status != BondStatus::Redeemed,
+            ActionsError::BondRedeemed
+        );
+        // Аннулировать можно только пустой выпуск: пока бумаги на руках,
+        // держатели ещё чего-то ждут.
+        require!(registry.outstanding == 0, ActionsError::BondsOutstanding);
+
+        registry.status = BondStatus::Cancelled;
+        emit!(BondStatusChanged {
+            campaign_id: registry.campaign_id,
+            status: BondStatusView::Cancelled,
         });
         Ok(())
     }
@@ -540,6 +571,7 @@ fn metadata_fields(params: &BondParams, campaign_id: u64) -> Vec<(String, String
         ),
         ("maturity".to_string(), params.maturity_ts.to_string()),
         ("campaign".to_string(), campaign_id.to_string()),
+        ("isin".to_string(), params.isin.clone()),
     ]
 }
 
