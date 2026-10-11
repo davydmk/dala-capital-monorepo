@@ -4,8 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, ExternalLink, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Copyable } from '@/components/copyable';
-import { DueBreakdown, LoanPicker } from '@/components/loan-bits';
-import { formatDateTime, formatMoney } from '@/components/money';
+import {
+  DueBreakdown,
+  LoanPicker,
+  NextPaymentNotice,
+} from '@/components/loan-bits';
+import { formatMoney } from '@/components/money';
 import {
   Button,
   Card,
@@ -94,7 +98,7 @@ export function PayView() {
             {data.due.total === '0' ? (
               <p className="text-sm text-muted">
                 {data.next
-                  ? `Сейчас платить нечего. Следующий платёж — ${formatMoney(data.next.total, decimals)} до ${formatDateTime(data.next.dueTs)}. Перевести можно заранее: деньги дождутся даты на адресе погашения.`
+                  ? 'Сейчас платить нечего — ближайший платёж ещё не наступил.'
                   : 'Все платежи по графику закрыты.'}
               </p>
             ) : (
@@ -105,6 +109,17 @@ export function PayView() {
                 now={data.now}
               />
             )}
+            {/* Срок и сумма называются в обоих случаях: в разбивке стоит
+                только то, что причитается сейчас, а знать надо и следующее. */}
+            {data.next ? (
+              <div className="mt-3">
+                <NextPaymentNotice
+                  next={data.next}
+                  penaltyRateBps={data.campaign.penaltyRateBps}
+                  decimals={decimals}
+                />
+              </div>
+            ) : null}
           </Card>
 
           <Card>

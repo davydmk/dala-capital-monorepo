@@ -8,6 +8,7 @@ import { Card, CardTitle } from './ui';
 import type {
   AmountDue,
   LoanCard,
+  LoanPayment,
   LoanPeriodStatus,
   LoanSchedulePeriod,
 } from '@/lib/types';
@@ -125,18 +126,77 @@ export function DueBreakdown({
 }
 
 /** График платежей с отметками: что оплачено, что наступило, что впереди. */
+/**
+ * Что внести и до какого срока. Требование к оплате контракт показывает ровно
+ * в секунду наступления срока — и с той же секунды начисляет пеню, льготного
+ * окна в начислении нет. Поэтому сумму и дату надо называть заранее, а не
+ * ждать, пока заёмщик окажется в просрочке.
+ */
+export function NextPaymentNotice({
+  next,
+  penaltyRateBps,
+  decimals,
+}: {
+  next: LoanPayment;
+  penaltyRateBps: number;
+  decimals: number;
+}) {
+  // Пеня за сутки по той же ставке, что в кампании: год здесь 360 дней — так
+  // его считает контракт в начислении.
+  const perDay = penaltyRateBps
+    ? ((BigInt(next.total) * BigInt(penaltyRateBps)) / 10_000n / 360n).toString()
+    : '0';
+  return (
+    <div className="rounded-lg border border-border bg-background p-3">
+      <p className="text-sm">
+        Внесите{' '}
+        <span className="font-medium tabular-nums">
+          {formatMoney(next.total, decimals)}
+        </span>{' '}
+        до <span className="font-medium">{formatDateTime(next.dueTs)}</span> —
+        тогда просрочки не будет.
+      </p>
+      {penaltyRateBps > 0 ? (
+        <p className="mt-1 text-xs text-muted">
+          После этой даты начисляется пеня {penaltyRateBps / 100}% годовых — это
+          около {formatMoney(perDay, decimals)} в сутки, и считается она с
+          первой секунды опоздания.
+        </p>
+      ) : null}
+      <p className="mt-1 text-xs text-muted">
+        Перевести можно заранее: деньги дождутся срока на адресе погашения.
+        Чтобы платёж закрылся до даты, нажмите «Зачесть авансом» — платформа
+        проведёт его по ненаступившему периоду, и пеня не начнётся.
+      </p>
+    </div>
+  );
+}
+
 export function LoanSchedule({
   periods,
   decimals,
   title = 'График платежей',
+  failed = false,
 }: {
   periods: LoanSchedulePeriod[];
   decimals: number;
   title?: string;
+  /** Размещение не состоялось: суммы так и не будут рассчитаны. */
+  failed?: boolean;
 }) {
+  // Суммы платежей считаются от собранного, поэтому до закрытия размещения
+  // контракт знает только даты. Нули без объяснения выглядят как ошибка.
+  const unset = periods.every((period) => period.total === '0');
   return (
     <Card>
       <CardTitle>{title}</CardTitle>
+      {unset ? (
+        <p className="mb-3 text-sm text-muted">
+          {failed
+            ? 'Размещение не состоялось, поэтому суммы остались нулевыми: считать их не от чего. В графике только даты, которые были объявлены.'
+            : 'Суммы появятся, когда платформа закроет размещение: они считаются от собранного, а сбор ещё идёт. Пока в графике только даты платежей.'}
+        </p>
+      ) : null}
 
       {/* Телефон: список карточек — таблица в 375px не помещается */}
       <ul className="space-y-2 sm:hidden">

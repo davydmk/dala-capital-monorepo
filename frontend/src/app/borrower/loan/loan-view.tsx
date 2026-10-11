@@ -6,7 +6,12 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { FundingBar, TermBar } from '@/components/campaign-bits';
 import { CampaignStatusBadge } from '@/components/campaign-bits';
-import { DueBreakdown, LoanPicker, LoanSchedule } from '@/components/loan-bits';
+import {
+  DueBreakdown,
+  LoanPicker,
+  LoanSchedule,
+  NextPaymentNotice,
+} from '@/components/loan-bits';
 import { bpsToPercent, formatDateTime, formatMoney } from '@/components/money';
 import {
   buttonStyles,
@@ -240,30 +245,43 @@ function LoanDetails({ data }: { data: NonNullable<LoanData> }) {
           {due.total === '0' ? (
             <p className="text-sm text-muted">
               {data.next
-                ? `Сейчас платить нечего. Следующий платёж — ${formatMoney(data.next.total, decimals)} до ${formatDateTime(data.next.dueTs)}.`
+                ? 'Сейчас платить нечего — ближайший платёж ещё не наступил.'
                 : 'Все платежи по графику закрыты.'}
             </p>
           ) : (
-            <>
-              <DueBreakdown
-                due={due}
+            <DueBreakdown
+              due={due}
+              decimals={decimals}
+              accruedTo={data.accruedTo}
+              now={now}
+            />
+          )}
+          {data.next ? (
+            <div className="mt-3">
+              <NextPaymentNotice
+                next={data.next}
+                penaltyRateBps={data.campaign.penaltyRateBps}
                 decimals={decimals}
-                accruedTo={data.accruedTo}
-                now={now}
               />
-              <Link
-                href="/borrower/pay"
-                className={buttonStyles('primary', 'mt-4')}
-              >
-                Оплатить
-              </Link>
-            </>
+            </div>
+          ) : null}
+          {due.total === '0' ? null : (
+            <Link
+              href="/borrower/pay"
+              className={buttonStyles('primary', 'mt-4')}
+            >
+              Оплатить
+            </Link>
           )}
         </Card>
       ) : null}
 
       {schedule.length > 0 ? (
-        <LoanSchedule periods={schedule} decimals={decimals} />
+        <LoanSchedule
+          periods={schedule}
+          decimals={decimals}
+          failed={data.status === 'FAILED'}
+        />
       ) : null}
     </>
   );
