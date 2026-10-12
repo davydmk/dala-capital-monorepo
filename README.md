@@ -24,6 +24,10 @@ Two loan shapes. A **loan** amortises on an annuity schedule, and the investor's
 
 **The holder register is stored off-chain; its hash goes on-chain.** Keeping the full list in an account would be expensive and pointless: the published list can be recomputed by anyone and verified against the anchored digest.
 
+**The register is kept by name.** Notes are minted only to investors' withdrawal addresses and cannot be transferred, so the platform always knows who is behind an address. Identity is written into the snapshot when it is taken, not looked up later, so an extract for a past record date still shows the name of that date. The hash covers accounts, units and amounts — not names: a name is an attribute of the KYC file, and substituting it changes nobody's entitlement. Names are visible to the administrator only; investors see each other as anonymous shares.
+
+**Documents a registrar hands out.** A register extract in CSV — holder, type, country, securities account, units, share of the issue, amount due — with a second, journalled export that adds identifying documents. Corporate-action notices in the ISO 15022 layout: MT564 while declared, MT566 once settled, with `CAEV`/`CAMV` codes and the ISIN. And the whole action journal as a table.
+
 **The bond is registered, not bearer.** Holder token accounts are created frozen, so the note evidences a claim and does not circulate. The registrar holds permanent-delegate rights and burns units on redemption — supply goes to zero, visible in any explorer.
 
 ## A note on language
@@ -57,4 +61,4 @@ cd backend && pnpm test && pnpm test:e2e
 cd smartcontracts && anchor test
 ```
 
-Both programs are deployed on devnet and the full lifecycle — issuance, deposits, coupon with a record date, holder vote, redemption with burn — has been walked through live. Addresses and the walkthrough are in [KASE.md](KASE.md).
+Both programs are deployed on devnet and the full lifecycle has been walked through live on realistic amounts: an issue of 1 251 000 USDC with 1 251 notes across three holders, a 75 060 USDC coupon, a holder vote, redemption with burn down to zero supply, and the borrower's overpayment returned. Addresses, numbers and the walkthrough are in [KASE.md](KASE.md).

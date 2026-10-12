@@ -58,7 +58,9 @@ A **Token-2022 mint created by the program itself** (PDA, so nobody can register
 |---|---|
 | `DefaultAccountState = Frozen` | Holder accounts are created frozen — the bond is **registered, not bearer**. It evidences a claim; it does not circulate |
 | `PermanentDelegate = registry PDA` | The registrar burns bonds without the holder signing, exactly as a CSD executes a mandatory corporate action |
-| `MetadataPointer` + `TokenMetadata` | **Terms live inside the mint**: face value, coupon rate, coupons per year, maturity, issuer campaign |
+| `MetadataPointer` + `TokenMetadata` | **Terms live inside the mint**: ISIN, face value, coupon rate, coupons per year, maturity, issuer campaign |
+
+The **ISIN** is validated against ISO 6166 — twelve characters, country prefix, Luhn check digit — before it is written, because metadata is immutable after issuance: a wrong identifier would stay wrong forever. It is optional (an issue may not have one yet), but never accepted malformed, and it is shown on the issue page, on the holder's tile and in the register extract.
 
 Metadata is not decoration. A holder can verify the terms of their own bond in any wallet or explorer without trusting our program, our backend, or our UI. The registry account duplicates these fields for on-chain arithmetic, but the mint is the source of truth for the outside world.
 
@@ -120,6 +122,27 @@ Anyone can recompute the hash from the published list, recompute every entitleme
 
 **Known limitation, stated plainly:** a hash does not prevent the platform from dropping a ballot or a holder *before* hashing. Mitigated — holders see their own record and the list is published before closing — not eliminated. Full protection means holder-signed, on-chain ballots, which requires wallet login in the investor cabinet.
 
+### The register is kept by name, not by address
+
+A registrar knows its holders by name; that is the job. Bonds are minted only to investors' withdrawal addresses and cannot be transferred, so the platform always knows who is behind an address — it reads the link from its own deposit records.
+
+Identity — name, holder type, country — is written **into the snapshot at the moment it is taken**, not looked up when the document is read. Otherwise an extract for a past record date would show the holder under a name they have since changed.
+
+**The hash covers the distribution of rights, not the identity:** account, token account, units, amount. A name is an attribute of the KYC file; substituting it changes nobody's entitlement and is refuted by the file itself — exactly as at a registrar, where holder details are amended on application. The extract says so in its own header, so the question does not have to be asked. A unit test asserts that adding names to the rows leaves the fingerprint unchanged.
+
+**Names are visible to the administrator only.** Investors see each other as anonymous shares; an end-to-end test asserts that no name reaches an investor's response.
+
+### What the registrar hands out
+
+| Document | Contents |
+|---|---|
+| Register extract, `GET /bonds/:id/register/:index/csv` | Issue and ISIN, record date, list hash and what it covers; then number, holder, type, country, securities account, token account, units, share of the issue, amount due |
+| The same with `?full=1` | Adds the identifying document and date of birth, taken from the KYC file **as of export** and labelled as such; the export itself is written to the admin journal |
+| Corporate-action notice, `…/actions/:index/notice` | ISO 15022 layout: MT564 while the action is declared, MT566 once settled, with `CAEV`/`CAMV` codes, `:35B:ISIN`, eligible units, record and payment dates, the register hash and the settlement signature. Not a SWIFT message — no network blocks, no BIC, no validation — and said so plainly in the file's own header comment |
+| Action journal, `GET /bonds/:id/journal/csv` | Every action of the issue with the same ISO 15022 codes, statuses, dates, amounts, holder counts, hashes and settlement signatures |
+
+There is no national identifier in the KYC file — Kazakhstan's IIN/BIN does not exist for offshore holders — so identification is the document type and number for an individual and the registration number for a company. The extract labels them as such instead of passing a passport number off as an IIN.
+
 ---
 
 ## 5. The three required scenarios
@@ -128,26 +151,35 @@ Anyone can recompute the hash from the published list, recompute every entitleme
 
 Admin declares the coupon with a record date; after that date the operator snapshots the register and commits its hash; the borrower's payment is distributed to investors **on-chain by `dala_capital`**; the settlement signature is written into the action record; the action is closed.
 
-Devnet run (campaign #7, mint `BCqFYARfKZTjN1sHggAZRb56PttouZHj4kzaghikCn98`):
+Devnet run (campaign #19, ISIN `KZ0000000021`, mint `5BJzKnHrPTSTnjg7AyJhV5VsrjTNmXaJGZYhsUAdEgEa`, face value 1 000 USDC, 1 251 000 USDC placed with three holders):
 
 ```
-declared   coupon, 60 000 (0.06 USDC) per unit — 1 USDC × 12% ÷ 2
-snapshot   1 holder, 1 unit, 60 000 total
-           hash 077f6fd5ebf261ca14d109df5bfa267ee86a4c782c91f30ea85fa9cbf0e6d6be
-settled    signature 54Lpkmw5NJtpynp1RGzo… (the dala_capital payment)
-closed
+declared   coupon, 60.00 USDC per unit — 1 000 × 12% ÷ 2
+snapshot   3 holders, 1 251 units, 75 060 USDC total
+           600 → 36 000 · 400 → 24 000 · 251 → 15 060
+           hash 2ed76c64a21651890f06b2689e528cfd0fa33ec81fc806382ac1f18c0c9cebfa
+           MT564 :23G:NEWM · :22F::CAEV//INTR · :22F::CAMV//MAND
+settled    signature 5Sah7sx9NzhbiRAC… (the dala_capital payment)
+           MT566 :23G:CONF with the settlement signature attached
+closed     holders withdrew 36 000 / 24 000 / 15 060 to their own addresses
 ```
+
+The coupon was paid 23 seconds after the due timestamp, so the contract charged a late-payment penalty of 0.01332 USDC at 24% per annum — and distributed it **to the holders**, visible as the fractional tail in what each withdrew. Nothing about it is special-cased; it is the same accrual the loan side has always done.
 
 ### 5.2 Bond redemption — implemented, executed on devnet
 
 At maturity the principal (plus any final coupon) is paid by `dala_capital`, and the bonds are **burned** by the registrar through the permanent delegate. When nothing is outstanding, the registry flips to `Redeemed`.
 
 ```
-declared   redemption, 1 060 000 per unit (face 1 000 000 + final coupon 60 000)
-snapshot   register fixed
-burned     1 holder, outstanding 0, registry status = redeemed
+declared   redemption, 1 060.00 USDC per unit (face 1 000 + final coupon 60)
+snapshot   3 holders, 1 251 units, 1 326 060 USDC total
+           MT566 :22F::CAEV//REDM
+paid       1 326 060 USDC distributed by dala_capital; holders withdrew in full
+burned     3 holders, outstanding 0, registry status = redeemed
 mint supply on devnet = 0
 ```
+
+The borrower overpaid the final instalment by 200 USDC; the leftover sat on the repayment address until `withdraw_repay_excess` returned 199.924709 USDC to the payout wallet. Before that instruction existed the money had no way back at all.
 
 Burn rather than a flag: "redeemed" in our account has to be taken on trust; a zero supply is visible to anyone in any explorer.
 
@@ -160,11 +192,15 @@ Chosen over a generic vote because it is a decision the product actually has to 
 **The question includes a recovery-cost budget.** Declaring default means the platform starts spending on lawyers, court fees and valuation — and `dala_capital` reimburses those costs **first**, straight to treasury, bypassing the vault. Holders receive only what is left after them, so voting blind would be unfair. The approved ceiling is part of the on-chain record, and actual costs are compared against it afterwards.
 
 ```
-declared   vote, recovery budget 500 000 (0.5 USDC)
-snapshot   register fixed
-voted      FOR, weight 1 unit → turnout 100%, quorum reached, passed
-settled    on-chain: for 1, against 0, budget 500 000
+declared   vote, recovery budget 15 000 USDC — the whole budget, not per unit
+snapshot   3 holders, 1 251 units; entitlement per unit is 0 by design
+           MT564 :22F::CAEV//BMET · :22F::CAMV//VOLU
+voted      600 FOR · 400 AGAINST · 251 FOR
+           admin sees the live tally from the ballots before committing it
+settled    on-chain: for 851, against 400, turnout 100%, quorum reached
 ```
+
+Two details the first implementation got wrong and the devnet run caught. The recovery budget is a **total**, and multiplying it by 1 251 units made the register show an absurd obligation; it is now carried in the action itself with a zero per-unit entitlement. And the administrator used to see zeros until the result was committed on-chain, because that is where `votes_for` appears — while the decision of *when* to commit has to be made from the ballots already cast. Both are visible in the code: the tally is computed from the ballots and reconciled against the chain afterwards.
 
 ### Bonus: default and recovery as recorded actions
 
@@ -212,8 +248,8 @@ anchor deploy --provider.cluster devnet --program-name dala_actions
 # Backend
 cd backend
 docker compose up -d && npx prisma migrate deploy
-pnpm test                  # 169 unit tests
-pnpm test:e2e              # 175 end-to-end tests over HTTP
+pnpm test                  # 185 unit tests
+pnpm test:e2e              # 191 end-to-end tests over HTTP
 pnpm start
 
 # Frontend
@@ -221,15 +257,16 @@ cd frontendV2
 pnpm dev --port 3100
 ```
 
-Screens: `/admin/bonds` — issues and the action journal with every stage, holder register and hash; `/investor/bonds` — the holder's paper, terms read from the mint, and the default vote.
+Screens: `/admin/bonds` — issues and the action journal with every stage, the holder register by name with links into each KYC file, the list hash and the extracts; `/investor/bonds` — the holder's paper with its ISIN, terms read from the mint, and the default vote.
 
 ### Bond test coverage
 
 | Layer | Tests | What they prove |
 |---|---|---|
 | LiteSVM (`tests/bonds.ts`) | 16 | Metadata written into the mint; bonds appear on investment and burn on refund; **a holder cannot transfer their bond**; a snapshot before the record date is rejected; settlement without a snapshot is rejected; redemption burns and closes the issue; a defaulted bond stays with holders |
-| Backend unit (`entitlements.spec.ts`) | 18 | The brief's numbers; rounding never invents a cent; hash is order-independent and changes on any edit; quorum and vote weights |
-| Backend e2e (`bonds.e2e-spec.ts`) | 22 | Annuity loans issue no paper; the full action lifecycle over HTTP; vote weight comes from the snapshot, not the current balance; **burning is refused while the loan is unpaid**; roles |
+| Backend unit (`entitlements.spec.ts`) | 19 | The brief's numbers; rounding never invents a cent; hash is order-independent, changes on any edit, and **does not change when holder names are added to the rows**; quorum and vote weights |
+| Backend unit (`mt564.spec.ts`, `validation.spec.ts`, `title.spec.ts`) | 18 | The ISO 15022 layout field by field, NEWM → CONF on settlement, `BMET`/`VOLU` for a vote; ISO 6166 check digit; how a holder is named in a document |
+| Backend e2e (`bonds.e2e-spec.ts`) | 36 | Annuity loans issue no paper; the full action lifecycle over HTTP; vote weight comes from the snapshot, not the current balance; **burning is refused while the loan is unpaid**; the extract carries names, shares and the hash disclaimer; the extended export is journalled; **no holder name reaches an investor's response**; roles |
 
 ---
 
