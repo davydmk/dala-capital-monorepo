@@ -81,7 +81,7 @@ export class LoansService {
           status: campaignStatus({
             dealState: deal.state,
             fundingDeadline: deal.fundingDeadline,
-            overduePrincipal: overdueNow(deal, now),
+            overdue: overdueNow(deal, now),
             now,
           }),
           totalRaised: deal.totalRaised,
@@ -129,7 +129,7 @@ export class LoansService {
       status: campaignStatus({
         dealState: deal.state,
         fundingDeadline: deal.fundingDeadline,
-        overduePrincipal: overdueNow(deal, now),
+        overdue: overdueNow(deal, now),
         now,
       }),
       deal: {

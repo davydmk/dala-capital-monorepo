@@ -5,7 +5,7 @@ import { SolanaService } from '../solana/solana.service.js';
 import { PortfolioService } from '../investors/portfolio.service.js';
 import { BondProgramService } from '../bonds/bond-program.service.js';
 import { campaignStatus, overdueNow } from '../investors/campaign-status.js';
-import { amountDue, daysPastDue } from '../borrowers/debt.js';
+import { amountDue, daysPastDue, nextPayment } from '../borrowers/debt.js';
 
 /** Ниже этого остатка ключ скоро перестанет подписывать операции. */
 const LOW_SOL = 0.05;
@@ -122,7 +122,7 @@ export class TasksService {
         const status = campaignStatus({
           dealState: deal.state,
           fundingDeadline: deal.fundingDeadline,
-          overduePrincipal: overdueNow(deal, now),
+          overdue: overdueNow(deal, now),
           now,
         });
         if (status === 'FUNDING_ENDED') toClose += 1;
@@ -382,19 +382,29 @@ export class TasksService {
     );
     const now = Math.floor(Date.now() / 1000);
 
-    let due = 0;
+    let soon = 0;
     let late = 0;
     let extra = 0;
+    let worstDays = 0;
 
     for (const campaign of campaigns) {
       const deal = deals.get(String(campaign.onchainId));
       if (!deal || !campaign.mint) continue;
       if (deal.state !== 'active' && deal.state !== 'default') continue;
 
-      const owed = amountDue(deal, now);
-      if (owed.total > 0n) {
-        due += 1;
-        if (daysPastDue(deal, now) > 0) late += 1;
+      // Просрочка — это неоплаченный наступивший платёж, и не важно, из чего
+      // он состоит: у купонного периода тела нет вовсе. Считать её сутками
+      // нельзя — пеня идёт с первой секунды, а «ноль дней» звучит спокойно.
+      if (overdueNow(deal, now) > 0n) {
+        late += 1;
+        worstDays = Math.max(worstDays, daysPastDue(deal, now));
+      } else {
+        // Платёж ещё не наступил: предупреждаем за сутки, чтобы заёмщик успел
+        // перевести деньги и зачесть их авансом.
+        const next = nextPayment(deal, now);
+        if (next && next.total > 0n && next.dueTs - now <= DAY_SECONDS) {
+          soon += 1;
+        }
       }
 
       // Излишек на адресе погашения: деньги лежат и ничего не делают.
@@ -408,21 +418,30 @@ export class TasksService {
           ),
         0n,
       );
-      if (balance > owed.total) extra += 1;
+      if (balance > amountDue(deal, now).total) extra += 1;
     }
 
     const tasks: Task[] = [];
-    if (due > 0) {
+    if (late > 0) {
       tasks.push({
         key: 'payment',
-        title: late > 0 ? 'Платёж просрочен' : 'Подходит платёж',
-        hint:
-          late > 0
-            ? 'На просрочку идут проценты и пеня, а дальше — дефолт'
-            : 'Переведите сумму на адрес погашения и нажмите «Я перевёл»',
+        title: 'Платёж просрочен',
+        hint: worstDays
+          ? `Пеня идёт с даты платежа, дольше всех — ${worstDays} дн; дальше дефолт`
+          : 'Пеня идёт с первой секунды опоздания, а дальше — дефолт',
         href: '/borrower/pay',
-        count: due,
-        tone: late > 0 ? 'danger' : 'info',
+        count: late,
+        tone: 'danger',
+      });
+    }
+    if (soon > 0) {
+      tasks.push({
+        key: 'paymentSoon',
+        title: 'Платёж в течение суток',
+        hint: 'Переведите сумму заранее и нажмите «Зачесть авансом» — тогда пени не будет',
+        href: '/borrower/pay',
+        count: soon,
+        tone: 'info',
       });
     }
     if (extra > 0) {

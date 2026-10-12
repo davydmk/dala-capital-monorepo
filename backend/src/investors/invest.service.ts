@@ -132,7 +132,7 @@ export class InvestService {
           status: campaignStatus({
             dealState: deal.state,
             fundingDeadline: deal.fundingDeadline,
-            overduePrincipal: overdueNow(deal, now),
+            overdue: overdueNow(deal, now),
             now,
           }),
           scheduleKind: campaign.scheduleKind,
@@ -233,7 +233,7 @@ export class InvestService {
       status: campaignStatus({
         dealState: deal.state,
         fundingDeadline: deal.fundingDeadline,
-        overduePrincipal: overdueNow(deal),
+        overdue: overdueNow(deal),
       }),
       deal,
       schedules,
@@ -329,7 +329,7 @@ export class InvestService {
           status: campaignStatus({
             dealState: deal.state,
             fundingDeadline: deal.fundingDeadline,
-            overduePrincipal: overdueNow(deal, now),
+            overdue: overdueNow(deal, now),
             now,
           }),
           totalRaised: deal.totalRaised,

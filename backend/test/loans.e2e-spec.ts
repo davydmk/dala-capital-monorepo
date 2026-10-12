@@ -1209,4 +1209,38 @@ describe('Закрытие сбора и кабинет заёмщика (e2e)',
       );
     });
   });
+
+  describe('что требует внимания', () => {
+    interface TaskRow {
+      key: string;
+      title: string;
+      hint: string;
+      count: number;
+      tone: string;
+    }
+
+    const tasks = async () => {
+      const response = await http()
+        .get('/tasks')
+        .set('Cookie', borrowerCookie)
+        .expect(200);
+      return response.body as TaskRow[];
+    };
+
+    it('опоздание называется просрочкой, не дожидаясь суток', async () => {
+      const task = (await tasks()).find((item) => item.key === 'payment');
+      expect(task?.title).toBe('Платёж просрочен');
+      expect(task?.tone).toBe('danger');
+      // Платежи этих займов наступили час и тридцать дней назад: сутками
+      // мерить нельзя, иначе час опоздания выглядел бы спокойным.
+      expect(task?.count).toBeGreaterThan(1);
+    });
+
+    it('о подходящем платеже предупреждает заранее', async () => {
+      const task = (await tasks()).find((item) => item.key === 'paymentSoon');
+      expect(task?.title).toBe('Платёж в течение суток');
+      expect(task?.tone).toBe('info');
+      expect(task?.hint).toContain('Зачесть авансом');
+    });
+  });
 });

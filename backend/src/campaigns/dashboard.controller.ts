@@ -71,7 +71,7 @@ export class DashboardController {
       const status = campaignStatus({
         dealState: deal.state,
         fundingDeadline: deal.fundingDeadline,
-        overduePrincipal: overdueNow(deal, now),
+        overdue: overdueNow(deal, now),
         now,
       });
       if (status === 'FUNDING') funding += 1;

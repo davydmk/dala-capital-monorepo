@@ -6,7 +6,7 @@ const deal = (overrides: Partial<Parameters<typeof campaignStatus>[0]> = {}) =>
   campaignStatus({
     dealState: 'funding',
     fundingDeadline: NOW + 3600,
-    overduePrincipal: 0n,
+    overdue: 0n,
     now: NOW,
     ...overrides,
   });
@@ -24,8 +24,8 @@ describe('статус кампании для витрины', () => {
     expect(deal({ dealState: 'active' })).toBe('ACTIVE');
   });
 
-  it('просроченное тело важнее слова «действует»', () => {
-    expect(deal({ dealState: 'active', overduePrincipal: 1n })).toBe('OVERDUE');
+  it('неоплаченный наступивший платёж важнее слова «действует»', () => {
+    expect(deal({ dealState: 'active', overdue: 1n })).toBe('OVERDUE');
   });
 
   it('дефолт, погашение и несостоявшийся сбор', () => {
@@ -86,12 +86,13 @@ describe('просрочка на текущий момент', () => {
   it('наступивший платёж даёт просрочку, хотя в сделке ещё ноль', () => {
     const deal = loan(NOW - 60);
     expect(deal.overduePrincipal).toBe(0n);
-    expect(overdueNow(deal, NOW)).toBe(1_000n);
+    // Тело и плановые проценты вместе: 1 000 и 100.
+    expect(overdueNow(deal, NOW)).toBe(1_100n);
     expect(
       campaignStatus({
         dealState: 'active',
         fundingDeadline: NOW - 7200,
-        overduePrincipal: overdueNow(deal, NOW),
+        overdue: overdueNow(deal, NOW),
         now: NOW,
       }),
     ).toBe('OVERDUE');
@@ -99,5 +100,30 @@ describe('просрочка на текущий момент', () => {
 
   it('до даты платежа просрочки нет', () => {
     expect(overdueNow(loan(NOW + 60), NOW)).toBe(0n);
+  });
+
+  /** Купонный период: тела в нём нет, и просрочка видна только по процентам. */
+  it('пропущенный купон — тоже просрочка', () => {
+    const coupon = {
+      ...loan(NOW - 60),
+      periods: [
+        {
+          dueTs: NOW - 60,
+          principalAmount: 0n,
+          interestAmount: 100n,
+          principalPaid: 0n,
+          interestPaid: 0n,
+        },
+      ],
+    };
+    expect(overdueNow(coupon, NOW)).toBe(100n);
+    expect(
+      campaignStatus({
+        dealState: 'active',
+        fundingDeadline: NOW - 7200,
+        overdue: overdueNow(coupon, NOW),
+        now: NOW,
+      }),
+    ).toBe('OVERDUE');
   });
 });
