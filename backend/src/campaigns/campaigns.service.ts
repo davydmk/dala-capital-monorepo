@@ -22,6 +22,10 @@ import type {
 } from './dto.js';
 import { BondsService } from '../bonds/bonds.service.js';
 import { daysPastDue } from '../borrowers/debt.js';
+import { withdrawnSoFar } from '../investors/portfolio.js';
+import { shareBps } from '../investors/payout.js';
+import { investorTitle } from '../investors/title.js';
+import { uuidToBytes } from '../solana/user-id.js';
 import { EventsService } from '../investors/events.service.js';
 import { campaignStatus, overdueNow } from '../investors/campaign-status.js';
 import { explainFailure } from '../investors/deposit-errors.js';
@@ -373,7 +377,72 @@ export class CampaignsService {
         url: this.solana.explorerTx(tx.signature),
         createdAt: tx.createdAt,
       })),
+      /** Состав инвесторов поимённо: платформа ведёт реестр и для кредита. */
+      investors: await this.investors(campaign.id, campaignId, deal),
     };
+  }
+
+  /**
+   * Кто участвует в кампании и с какой долей. Позиция в контракте — PDA по
+   * `user_id`, поэтому связь «позиция → инвестор» вычисляется, а не хранится:
+   * тем же приёмом инвестор находит среди позиций свою.
+   *
+   * Только для админа: инвестору на витрине доли показываются анонимно.
+   */
+  private async investors(
+    campaignId: string,
+    onchainId: bigint,
+    deal: { totalRaised: bigint },
+  ) {
+    const deposits = await this.prisma.campaignDeposit.findMany({
+      where: { campaignId },
+      select: {
+        credits: { select: { amount: true } },
+        investor: {
+          select: {
+            id: true,
+            userId: true,
+            type: true,
+            companyName: true,
+            firstName: true,
+            lastName: true,
+            country: true,
+          },
+        },
+      },
+    });
+    if (deposits.length === 0) return [];
+
+    const positions = await this.solana.campaignPositions(onchainId);
+    const dealPda = this.solana.dealPda(onchainId);
+    const byAddress = new Map(
+      deposits.map((item) => [
+        this.solana
+          .positionPda(dealPda, uuidToBytes(item.investor.userId))
+          .toBase58(),
+        item,
+      ]),
+    );
+
+    return positions.map((position) => {
+      const match = byAddress.get(position.address);
+      const investor = match?.investor;
+      const withdrawn = withdrawnSoFar(position);
+      return {
+        investorId: investor?.id ?? null,
+        title: investor ? investorTitle(investor) : null,
+        type: investor?.type ?? null,
+        country: investor?.country ?? null,
+        principal: position.principal,
+        shareBps: shareBps(position.principal, deal.totalRaised),
+        /** Зачислено по журналу платформы: возврат обнуляет позицию. */
+        credited: (match?.credits ?? []).reduce(
+          (sum, credit) => sum + credit.amount,
+          0n,
+        ),
+        received: withdrawn.total,
+      };
+    });
   }
 
   // ── Закрытие сбора ───────────────────────────────────────────────────────

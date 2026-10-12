@@ -139,6 +139,47 @@ export function CampaignPage({ id }: { id: string }) {
         ) : null}
       </Card>
 
+      {onchain.data && onchain.data.investors.length > 0 ? (
+        <Card>
+          <CardTitle>{words(data.scheduleKind).holdersTitle}</CardTitle>
+          <p className="mb-3 text-sm text-muted">
+            Доли считаются по позициям в контракте, имена — по анкетам.
+            Инвесторы друг друга видят анонимно: имена есть только здесь.
+          </p>
+          <ul className="space-y-2 text-sm">
+            {onchain.data.investors.map((row) => (
+              <li
+                key={row.investorId ?? row.principal}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+              >
+                {row.investorId ? (
+                  <Link
+                    href={`/admin/investors/${row.investorId}`}
+                    className="font-medium hover:text-accent"
+                  >
+                    {row.title}
+                    {row.country ? (
+                      <span className="ml-2 text-xs text-muted">
+                        {row.country}
+                      </span>
+                    ) : null}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-warning">
+                    Анкета не найдена
+                  </span>
+                )}
+                <span className="tabular-nums text-muted">
+                  доля {row.shareBps / 100}% · вложено{' '}
+                  {formatMoney(row.credited)} · получено{' '}
+                  {formatMoney(row.received)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
       {onchain.data && onchain.data.state === 'funding' ? (
         <ClosingBlock
           id={id}

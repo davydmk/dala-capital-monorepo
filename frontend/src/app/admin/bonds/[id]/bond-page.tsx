@@ -249,7 +249,17 @@ export function BondPageView({ id }: { id: string }) {
       <DeclareBlock id={id} schedule={bond.data.schedule} onDone={save} />
 
       <Card>
-        <CardTitle>Журнал корпоративных действий</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>Журнал корпоративных действий</CardTitle>
+          {actions.length > 0 ? (
+            <a
+              href={api.bonds.journalCsvUrl(id)}
+              className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
+            >
+              <Download size={14} aria-hidden /> журнал таблицей
+            </a>
+          ) : null}
+        </div>
         {actions.length === 0 ? (
           <p className="text-sm text-muted">
             Действий ещё не было. Объявите купон или снимок реестра — всё
@@ -334,7 +344,15 @@ export function BondPageView({ id }: { id: string }) {
                         href={api.bonds.registerCsvUrl(id, action.index)}
                         className="text-accent hover:underline"
                       >
-                        CSV
+                        выписка
+                      </a>{' '}
+                      ·{' '}
+                      <a
+                        href={api.bonds.registerFullCsvUrl(id, action.index)}
+                        className="text-accent hover:underline"
+                        title="Добавляет удостоверяющие данные держателей; выгрузка пишется в журнал админа"
+                      >
+                        с документами
                       </a>
                       {/* До исполнения в сети нули: показываем подсчёт платформы
                         и говорим, что он предварительный. */}
@@ -438,6 +456,13 @@ export function BondPageView({ id }: { id: string }) {
 
       <Card>
         <CardTitle>Держатели</CardTitle>
+        <p className="mb-3 text-sm text-muted">
+          Реестр ведёт платформа как регистратор: держатель известен по анкете,
+          имя ведёт в неё. Хеш списка, который уходит в сеть, покрывает лицевые
+          счёта, бумаги и суммы — имя и страна в отпечаток не входят. Подмена
+          имени прав не меняет и оспаривается самой анкетой; так же это устроено
+          и у регистратора, где данные держателя правятся по заявлению.
+        </p>
         {holders.length === 0 ? (
           <p className="text-sm text-muted">
             Бумаг пока ни у кого: они выпускаются в момент взноса.
@@ -447,16 +472,42 @@ export function BondPageView({ id }: { id: string }) {
             {holders.map((row) => (
               <li
                 key={row.tokenAccount}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm"
+                className={clsx(
+                  'flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm',
+                  // Бумаги выпускаются только на адреса инвесторов и не
+                  // передаются, поэтому держатель без анкеты — это не
+                  // «посторонний», а рассинхрон: подсвечиваем, не прячем.
+                  row.investor ? 'border-border' : 'border-warning',
+                )}
               >
-                <a
-                  href={row.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-mono text-xs text-muted hover:text-accent"
-                >
-                  {row.holder}
-                </a>
+                <div className="min-w-0">
+                  {row.investor ? (
+                    <Link
+                      href={`/admin/investors/${row.investor.investorId}`}
+                      className="font-medium hover:text-accent"
+                    >
+                      {row.investor.title}
+                      {row.investor.country ? (
+                        <span className="ml-2 text-xs text-muted">
+                          {row.investor.country}
+                        </span>
+                      ) : null}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-warning">
+                      Анкета не найдена
+                    </span>
+                  )}
+                  <a
+                    href={row.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate font-mono text-xs text-muted hover:text-accent"
+                    title={row.holder}
+                  >
+                    {row.holder}
+                  </a>
+                </div>
                 <span className="tabular-nums">
                   {row.units} бумаг ·{' '}
                   {formatMoney(

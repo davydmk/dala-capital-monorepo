@@ -17,7 +17,18 @@ import type { SessionPayload } from '../auth/auth.service.js';
 import { SolanaService } from '../solana/solana.service.js';
 import { DecisionDto, ListInvestorsDto, WhitelistDto } from './dto.js';
 import { InvestorsService } from './investors.service.js';
+import { PortfolioService } from './portfolio.service.js';
+import { BondsService } from '../bonds/bonds.service.js';
 import { checkInvestor } from './validation.js';
+
+/** Суммы в контракте — u64; в JSON отдаём строками, иначе точность теряется. */
+function serialize<T>(value: T): T {
+  return JSON.parse(
+    JSON.stringify(value, (_key, item) =>
+      typeof item === 'bigint' ? item.toString() : item,
+    ),
+  ) as T;
+}
 
 /** Проверка анкеты админом. */
 @Controller('investors')
@@ -26,6 +37,8 @@ export class InvestorsController {
   constructor(
     private readonly investors: InvestorsService,
     private readonly solana: SolanaService,
+    private readonly portfolio: PortfolioService,
+    private readonly bonds: BondsService,
   ) {}
 
   @Get()
@@ -43,6 +56,21 @@ export class InvestorsController {
         ? this.solana.explorerAddress(investor.onchainAccount)
         : null,
     };
+  }
+
+  /**
+   * Что инвестор держит: участия в кампаниях и бумаги по выпускам. Считается
+   * тем же кодом, что и его собственный кабинет, — у админа просто другой
+   * вход. Без этого карточка инвестора рассказывает только про анкету.
+   */
+  @Get(':id/holdings')
+  async holdings(@Param('id', ParseUUIDPipe) id: string) {
+    const userId = await this.investors.userIdOf(id);
+    const [portfolio, bonds] = await Promise.all([
+      this.portfolio.list(userId),
+      this.bonds.myBonds(userId),
+    ]);
+    return serialize({ portfolio, bonds });
   }
 
   @Get(':id/history')

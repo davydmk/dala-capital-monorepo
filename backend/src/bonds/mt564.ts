@@ -11,14 +11,14 @@
  */
 
 /** Код события по CAEV. У служебного снимка реестра его не существует. */
-const EVENT_CODE: Record<string, string | undefined> = {
+export const EVENT_CODE: Record<string, string | undefined> = {
   coupon: 'INTR',
   redemption: 'REDM',
   vote: 'BMET',
 };
 
 /** Обязательность по CAMV: голосование добровольное, выплаты — нет. */
-const MANDATORY_CODE: Record<string, string | undefined> = {
+export const MANDATORY_CODE: Record<string, string | undefined> = {
   coupon: 'MAND',
   redemption: 'MAND',
   vote: 'VOLU',

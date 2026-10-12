@@ -442,6 +442,15 @@ export const api = {
     /** Тот же список держателей таблицей — как отчёт регистратора. */
     registerCsvUrl: (campaignId: string, index: number) =>
       `/api/bonds/${campaignId}/register/${index}/csv`,
+    /**
+     * Выписка с удостоверяющими данными держателей. Это персональные данные,
+     * поэтому выгрузка отдельным действием и пишется в журнал админа.
+     */
+    registerFullCsvUrl: (campaignId: string, index: number) =>
+      `/api/bonds/${campaignId}/register/${index}/csv?full=1`,
+    /** Журнал корпоративных действий выпуска таблицей. */
+    journalCsvUrl: (campaignId: string) =>
+      `/api/bonds/${campaignId}/journal/csv`,
     /** Уведомление о корпоративном действии в раскладке ISO 15022. */
     noticeUrl: (campaignId: string, index: number) =>
       `/api/bonds/${campaignId}/actions/${index}/notice`,
@@ -511,6 +520,11 @@ export const api = {
       return request<InvestorList>(`/investors${suffix}`);
     },
     get: (id: string) => request<InvestorCard>(`/investors/${id}`),
+    /** Что инвестор держит: участия в кампаниях и бумаги по выпускам. */
+    holdings: (id: string) =>
+      request<{ portfolio: Portfolio; bonds: { rows: MyBond[]; now: number } }>(
+        `/investors/${id}/holdings`,
+      ),
     history: (id: string) =>
       request<InvestorEvent[]>(`/investors/${id}/history`),
     documentUrl: (id: string, documentId: string) =>

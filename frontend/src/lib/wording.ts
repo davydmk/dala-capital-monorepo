@@ -32,6 +32,8 @@ export interface Wording {
   closeDue: string;
   /** Подсказка у засечки минимума на полосе. */
   softCapHint: string;
+  /** Карточка состава у админа: у облигации это реестр, у кредита — состав. */
+  holdersTitle: string;
 }
 
 const LOAN: Wording = {
@@ -48,6 +50,7 @@ const LOAN: Wording = {
   close: 'Закрыть сбор',
   closeDue: 'сбор завершён, пора закрывать',
   softCapHint: 'минимум, при котором сбор состоится',
+  holdersTitle: 'Состав инвесторов',
 };
 
 const BOND: Wording = {
@@ -64,6 +67,7 @@ const BOND: Wording = {
   close: 'Подвести итоги размещения',
   closeDue: 'размещение закончилось, пора подводить итоги',
   softCapHint: 'минимум, при котором размещение состоится',
+  holdersTitle: 'Реестр держателей',
 };
 
 export const words = (kind: ScheduleKind | undefined): Wording =>

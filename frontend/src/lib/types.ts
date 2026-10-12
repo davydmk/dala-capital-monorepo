@@ -331,6 +331,17 @@ export interface OnchainDeal {
     }[];
   };
   txs: { stage: string; signature: string; url: string; createdAt: string }[];
+  /** Состав инвесторов поимённо — только у админа. */
+  investors: {
+    investorId: string | null;
+    title: string | null;
+    type: string | null;
+    country: string | null;
+    principal: string;
+    shareBps: number;
+    credited: string;
+    received: string;
+  }[];
 }
 
 /**
@@ -1392,9 +1403,19 @@ export interface BondPage {
     tokenAccount: string;
     units: string;
     url: string;
+    /** Кто это по анкете; пусто — связь потерялась, и это видно на экране. */
+    investor: InvestorBrief | null;
   }[];
   actions: (CorporateAction & LiveTally)[];
   now: number;
+}
+
+/** Держатель так, как его видит админ: реестр ведётся поимённо. */
+export interface InvestorBrief {
+  investorId: string;
+  type: string;
+  title: string;
+  country: string | null;
 }
 
 /** Бумага в кабинете держателя. */

@@ -21,7 +21,7 @@ import {
   DocumentsCard,
   PersonCard,
 } from '@/components/investor-profile';
-import { formatDateTime } from '@/components/money';
+import { formatDateTime, formatMoney } from '@/components/money';
 import {
   Button,
   Card,
@@ -123,6 +123,7 @@ export function InvestorDetails({ id }: { id: string }) {
         documents={investor.documents}
         url={(documentId) => api.investors.documentUrl(investor.id, documentId)}
       />
+      <Holdings id={id} />
       <Withdrawal investor={investor} onDone={refresh} />
       <Checks checks={checks} />
       <Decision investor={investor} onDone={refresh} />
@@ -460,5 +461,129 @@ function Onchain({
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * Что инвестор держит. Считается тем же кодом, что и его собственный кабинет:
+ * у админа просто другой вход. Без этой карточки страница рассказывает только
+ * про анкету, а вопрос «что у человека на руках» остаётся без ответа.
+ */
+function Holdings({ id }: { id: string }) {
+  const holdings = useQuery({
+    queryKey: ['investor-holdings', id],
+    queryFn: () => api.investors.holdings(id),
+  });
+
+  if (holdings.isPending) {
+    return (
+      <Card>
+        <CardTitle>Участия и бумаги</CardTitle>
+        <p className="text-sm text-muted">Считаем по контракту…</p>
+      </Card>
+    );
+  }
+  if (holdings.isError) {
+    return (
+      <Card>
+        <CardTitle>Участия и бумаги</CardTitle>
+        <Notice tone="danger" title={(holdings.error as ApiError).message} />
+      </Card>
+    );
+  }
+
+  const { portfolio } = holdings.data;
+  // Погашенные выпуски оставляют строку с нулём бумаг: держать там уже нечего,
+  // а участие в них видно выше, в списке кампаний.
+  const papers = holdings.data.bonds.rows.filter((row) => row.units !== '0');
+  const totals = portfolio.totals;
+  const decimals = portfolio.rows[0]?.mintDecimals ?? 6;
+
+  return (
+    <Card>
+      <CardTitle>Участия и бумаги</CardTitle>
+
+      {portfolio.rows.length === 0 && papers.length === 0 ? (
+        <p className="text-sm text-muted">
+          Инвестор пока ничего не держит: ни взносов в кампании, ни бумаг.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <Figure
+              label="Размещено"
+              value={formatMoney(totals.invested, decimals)}
+            />
+            <Figure
+              label="Получено"
+              value={formatMoney(totals.received, decimals)}
+            />
+            <Figure
+              label="Ожидается"
+              value={formatMoney(totals.available, decimals)}
+            />
+            <Figure label="Действующих" value={String(totals.activeCount)} />
+          </dl>
+
+          {portfolio.rows.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {portfolio.rows.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+                >
+                  <Link
+                    href={`/admin/campaigns/${row.id}`}
+                    className="font-medium hover:text-accent"
+                  >
+                    {row.title}
+                  </Link>
+                  <span className="tabular-nums text-muted">
+                    доля {row.shareBps / 100}% · вложено{' '}
+                    {formatMoney(row.invested, row.mintDecimals)} · получено{' '}
+                    {formatMoney(row.received, row.mintDecimals)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {papers.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {papers.map((row) => (
+                <li
+                  key={row.campaignId}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+                >
+                  <Link
+                    href={`/admin/bonds/${row.campaignId}`}
+                    className="font-medium hover:text-accent"
+                  >
+                    {row.title}
+                    {row.isin ? (
+                      <span className="ml-2 font-mono text-xs text-muted">
+                        {row.isin}
+                      </span>
+                    ) : null}
+                  </Link>
+                  <span className="tabular-nums text-muted">
+                    {row.units} бумаг
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Figure({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-base font-semibold tabular-nums">{value}</dd>
+    </div>
   );
 }

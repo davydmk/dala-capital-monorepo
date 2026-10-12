@@ -14,6 +14,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SolanaService } from '../solana/solana.service.js';
 import { uuidToBytes } from '../solana/user-id.js';
+import { investorTitle, type InvestorBrief } from '../investors/title.js';
 import { campaignStatus, overdueNow } from '../investors/campaign-status.js';
 import {
   couponPerUnit,
@@ -29,6 +30,8 @@ import {
   buildNotice,
   noticeAvailable,
   noticeFileName,
+  EVENT_CODE,
+  MANDATORY_CODE,
   type NoticeInput,
 } from './mt564.js';
 import {
@@ -43,6 +46,67 @@ const BOM = '\ufeff';
 
 /** Кворум голосования: решение считается принятым от половины выпуска. */
 const QUORUM_BPS = 5_000;
+
+/**
+ * Шапка выписки из реестра. «Лицевой счёт» вместо «адреса» — не косметика: в
+ * реестре у держателя именно лицевой счёт, и адрес Solana здесь ровно он.
+ */
+const REGISTER_COLUMNS = [
+  '№',
+  'Держатель',
+  'Тип',
+  'Страна',
+  'Лицевой счёт',
+  'Токен-счёт',
+  'Бумаг',
+  'Доля, %',
+  'Причитается',
+] as const;
+
+const HOLDER_TYPE: Record<string, string> = {
+  INDIVIDUAL: 'Физическое лицо',
+  COMPANY: 'Юридическое лицо',
+};
+
+/**
+ * Названия видов и статусов действий для выгрузки. На экране такие же
+ * словари — это одни и те же слова в двух рантаймах: меняя здесь, поправьте
+ * и `ACTION_KIND_TITLE` с `ACTION_STATUS_TITLE` на фронте, иначе журнал в
+ * файле и журнал на экране назовут одно и то же по-разному.
+ */
+const ACTION_KIND_TITLE: Record<string, string> = {
+  record: 'Реестр без выплаты',
+  coupon: 'Купон',
+  redemption: 'Погашение бумаг',
+  vote: 'Голосование держателей',
+  default: 'Дефолт',
+  recovery: 'Взыскание',
+};
+
+const ACTION_STATUS_TITLE: Record<string, string> = {
+  declared: 'Объявлено',
+  snapshot: 'Список составлен',
+  settled: 'Исполнено',
+  closed: 'Закрыто',
+};
+
+/** Строка снимка: личность записана в момент составления, а не при чтении. */
+interface SnapshotHolder {
+  holder: string;
+  tokenAccount: string;
+  units: string;
+  amount: string;
+  investorId?: string | null;
+  type?: string | null;
+  title?: string | null;
+  country?: string | null;
+}
+
+/** Дата для документа: без часового пояса читателя, он тут ни при чём. */
+function utcStamp(unix: number): string {
+  const iso = new Date(unix * 1000).toISOString();
+  return `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)} ${iso.slice(11, 16)} UTC`;
+}
 
 /**
  * Облигации и корпоративные действия.
@@ -314,7 +378,11 @@ export class BondsService {
 
     const onchainId = BigInt(campaign.onchainId);
     const registry = await this.bonds.registry(onchainId);
-    if (!registry || registry.status !== 'active' || registry.outstanding > 0n) {
+    if (
+      !registry ||
+      registry.status !== 'active' ||
+      registry.outstanding > 0n
+    ) {
       return;
     }
 
@@ -391,10 +459,10 @@ export class BondsService {
       );
     }
 
-    const rows: HolderRow[] = await this.bonds.holders(
-      onchainId,
-      await this.candidates(campaign.id),
-    );
+    const people = await this.candidateMap(campaign.id);
+    const rows: HolderRow[] = await this.bonds.holders(onchainId, [
+      ...people.keys(),
+    ]);
     // У голосования сумма действия — общий бюджет взыскания, а не выплата на
     // бумагу: множить его на число бумаг нельзя. Реестр голосования фиксирует,
     // кто и с каким весом голосует, а бюджет лежит в самом действии.
@@ -423,12 +491,23 @@ export class BondsService {
         kind: action.kind,
         recordTs: action.recordTs,
         paymentTs: action.paymentTs,
-        holders: result.rows.map((row) => ({
-          holder: row.holder,
-          tokenAccount: row.tokenAccount,
-          units: row.units.toString(),
-          amount: row.amount.toString(),
-        })),
+        // Личность пишется в снимок в момент составления, а не берётся из
+        // анкеты при чтении: иначе выписка на прошлую дату показала бы
+        // держателя под новым именем. В хеш эти поля не входят — он считается
+        // по счетам, бумагам и суммам.
+        holders: result.rows.map((row) => {
+          const investor = people.get(row.holder);
+          return {
+            holder: row.holder,
+            tokenAccount: row.tokenAccount,
+            units: row.units.toString(),
+            amount: row.amount.toString(),
+            investorId: investor?.investorId ?? null,
+            type: investor?.type ?? null,
+            title: investor?.title ?? null,
+            country: investor?.country ?? null,
+          };
+        }),
         units: result.units,
         totalAmount: result.total,
         hash: hash.toString('hex'),
@@ -637,8 +716,9 @@ export class BondsService {
   async bond(campaignId: string) {
     const { campaign, onchainId, registry } =
       await this.bondCampaign(campaignId);
+    const people = await this.candidateMap(campaign.id);
     const [holders, actions, deal] = await Promise.all([
-      this.bonds.holders(onchainId, await this.candidates(campaign.id)),
+      this.bonds.holders(onchainId, [...people.keys()]),
       this.bonds.actions(onchainId),
       this.solana.deal(onchainId),
     ]);
@@ -686,9 +766,16 @@ export class BondsService {
           paid: due > 0n && period.principalPaid + period.interestPaid >= due,
         };
       }),
+      /**
+       * Держатели поимённо: экран админа — это реестр, а не обозреватель
+       * токенов. Строка без анкеты не выбрасывается: бумаги выпускаются
+       * только на адреса инвесторов, и её отсутствие означает рассинхрон —
+       * например, адрес вывода сменили, а бумаги за ним не переехали.
+       */
       holders: holders.map((row) => ({
         ...row,
         url: this.bonds.explorerAddress(row.tokenAccount),
+        investor: people.get(row.holder) ?? null,
       })),
       actions: actions.map((action) => {
         const snapshot = snapshots.find(
@@ -877,19 +964,18 @@ export class BondsService {
    * Список держателей таблицей. Разделитель — точка с запятой, в начале BOM:
    * иначе Excel откроет кириллицу кракозябрами, как и в графике платежей.
    */
-  async registerCsv(campaignId: string, index: number) {
-    const { campaign } = await this.bondCampaign(campaignId);
+  async registerCsv(
+    campaignId: string,
+    index: number,
+    options: { full?: boolean; actorId?: string } = {},
+  ) {
+    const { campaign, registry } = await this.bondCampaign(campaignId);
     const snapshot = await this.prisma.bondSnapshot.findUnique({
       where: { campaignId_actionIndex: { campaignId, actionIndex: index } },
     });
     if (!snapshot) throw new NotFoundException('Список ещё не составлен');
 
-    const rows = snapshot.holders as {
-      holder: string;
-      tokenAccount: string;
-      units: string;
-      amount: string;
-    }[];
+    const rows = snapshot.holders as unknown as SnapshotHolder[];
     const money = (value: string) => {
       const unit = 10n ** BigInt(campaign.mintDecimals);
       const amount = BigInt(value);
@@ -899,22 +985,194 @@ export class BondsService {
         .slice(0, 2);
       return `${amount / unit},${fraction}`;
     };
+    /** Доля в выпуске: в выписке она есть всегда, считаем от бумаг снимка. */
+    const share = (units: string) =>
+      snapshot.units > 0n
+        ? `${((Number(units) / Number(snapshot.units)) * 100).toFixed(2).replace('.', ',')}`
+        : '0,00';
+
+    // Расширенная выписка добавляет удостоверяющие данные. Они берутся из
+    // анкеты на сейчас, а не из снимка: это нынешняя идентификация держателя,
+    // и выдавать её за данные на дату фиксации нельзя — так и подписано.
+    const documents = options.full
+      ? await this.holderDocuments(rows)
+      : new Map<string, string[]>();
+
+    const head = options.full
+      ? [...REGISTER_COLUMNS, 'Удостоверяющий документ', 'Дата рождения']
+      : [...REGISTER_COLUMNS];
 
     const body = [
-      ['Держатель', 'Токен-счёт', 'Бумаг', 'Причитается'].join(';'),
-      ...rows.map((row) =>
-        [row.holder, row.tokenAccount, row.units, money(row.amount)].join(';'),
+      ['Выпуск', campaign.title, 'ISIN', registry.isin || '—'].join(';'),
+      [
+        'Дата фиксации',
+        utcStamp(snapshot.recordTs),
+        'Хеш списка',
+        snapshot.hash,
+      ].join(';'),
+      // Вопрос «а что мешает подменить имя» задают первым, поэтому ответ
+      // стоит в самом документе, а не в пояснении рядом с ним.
+      [
+        'Хеш покрывает лицевые счёта, бумаги и суммы; имя и страна — атрибуты анкеты и в отпечаток не входят',
+      ].join(';'),
+      ...(options.full
+        ? [['Удостоверяющие данные — по анкете на момент выгрузки'].join(';')]
+        : []),
+      '',
+      head.join(';'),
+      ...rows.map((row, position) =>
+        [
+          position + 1,
+          row.title ?? 'Анкета не найдена',
+          HOLDER_TYPE[row.type ?? ''] ?? '—',
+          row.country ?? '—',
+          row.holder,
+          row.tokenAccount,
+          row.units,
+          share(row.units),
+          money(row.amount),
+          ...(options.full ? (documents.get(row.holder) ?? ['—', '—']) : []),
+        ].join(';'),
       ),
       [
         'Итого',
         '',
+        '',
+        '',
+        '',
+        '',
         snapshot.units.toString(),
+        '100,00',
         money(String(snapshot.totalAmount)),
       ].join(';'),
     ].join(CRLF);
 
+    if (options.full && options.actorId) {
+      // Выгрузка персональных данных — действие, о котором должна остаться
+      // запись: кто и по какому выпуску её сделал.
+      await this.prisma.adminAction.create({
+        data: {
+          actorId: options.actorId,
+          action: 'registerFullExport',
+          target: `${campaign.id}:${index}`,
+        },
+      });
+    }
+
     return {
-      fileName: `register-${campaign.onchainId}-${index}.csv`,
+      fileName: `register-${campaign.onchainId}-${index}${options.full ? '-full' : ''}.csv`,
+      body: BOM + body + CRLF,
+    };
+  }
+
+  /**
+   * Удостоверяющие данные держателей для расширенной выписки. ИИН и БИН в
+   * анкете нет и для офшорных держателей не будет: у человека это тип и номер
+   * документа, у компании — регистрационный номер.
+   */
+  private async holderDocuments(
+    rows: SnapshotHolder[],
+  ): Promise<Map<string, string[]>> {
+    const ids = rows
+      .map((row) => row.investorId)
+      .filter((id): id is string => Boolean(id));
+    if (ids.length === 0) return new Map();
+
+    const investors = await this.prisma.investor.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        type: true,
+        idDocType: true,
+        idDocNumber: true,
+        registrationNumber: true,
+        dob: true,
+      },
+    });
+
+    const byId = new Map(investors.map((item) => [item.id, item]));
+    const map = new Map<string, string[]>();
+    for (const row of rows) {
+      const investor = row.investorId ? byId.get(row.investorId) : undefined;
+      if (!investor) {
+        map.set(row.holder, ['—', '—']);
+        continue;
+      }
+      const document =
+        investor.type === 'COMPANY'
+          ? `Рег. номер ${investor.registrationNumber ?? '—'}`
+          : `${investor.idDocType ?? 'Документ'} ${investor.idDocNumber ?? '—'}`;
+      map.set(row.holder, [
+        document,
+        investor.dob ? investor.dob.toISOString().slice(0, 10) : '—',
+      ]);
+    }
+    return map;
+  }
+
+  /**
+   * Журнал корпоративных действий выпуска таблицей. Коды берём из того же
+   * словаря, что и уведомление для депозитария: разойтись они не должны.
+   */
+  async journalCsv(campaignId: string) {
+    const { campaign, onchainId, registry } =
+      await this.bondCampaign(campaignId);
+    const actions = await this.bonds.actions(onchainId);
+
+    const money = (value: bigint) => {
+      const unit = 10n ** BigInt(campaign.mintDecimals);
+      const fraction = (value % unit)
+        .toString()
+        .padStart(campaign.mintDecimals, '0')
+        .slice(0, 2);
+      return `${value / unit},${fraction}`;
+    };
+
+    const body = [
+      ['Выпуск', campaign.title, 'ISIN', registry.isin || '—'].join(';'),
+      '',
+      [
+        '№',
+        'Вид',
+        'CAEV',
+        'CAMV',
+        'Статус',
+        'Дата фиксации',
+        'Дата исполнения',
+        'На бумагу',
+        'Держателей',
+        'Бумаг',
+        'Хеш списка',
+        'Подпись расчёта',
+      ].join(';'),
+      ...[...actions]
+        .sort((a, b) => a.index - b.index)
+        .map((action) =>
+          [
+            action.index,
+            ACTION_KIND_TITLE[action.kind] ?? action.kind,
+            EVENT_CODE[action.kind] ?? '—',
+            action.kind === 'record'
+              ? '—'
+              : (MANDATORY_CODE[action.kind] ?? '—'),
+            ACTION_STATUS_TITLE[action.status] ?? action.status,
+            utcStamp(action.recordTs),
+            action.paymentTs ? utcStamp(action.paymentTs) : '—',
+            // У голосования это бюджет взыскания целиком, а не выплата на
+            // бумагу: подписываем в самой строке, чтобы не путать.
+            action.kind === 'vote'
+              ? `${money(action.amountPerUnit)} (бюджет)`
+              : money(action.amountPerUnit),
+            action.holders || '—',
+            action.units ? action.units.toString() : '—',
+            action.registerHash || '—',
+            action.settlement ?? '—',
+          ].join(';'),
+        ),
+    ].join(CRLF);
+
+    return {
+      fileName: `journal-${campaign.onchainId}.csv`,
       body: BOM + body + CRLF,
     };
   }
@@ -998,13 +1256,46 @@ export class BondsService {
    * из сети — список лишь сужает, где смотреть.
    */
   private async candidates(campaignId: string): Promise<string[]> {
+    return [...(await this.candidateMap(campaignId)).keys()];
+  }
+
+  /**
+   * Кто может оказаться держателем и кто это по анкете. Бумаги выпускаются
+   * только на адреса вывода инвесторов и не передаются, поэтому связь
+   * «адрес → человек» платформе известна всегда — регистратор по определению
+   * знает держателей поимённо.
+   */
+  private async candidateMap(
+    campaignId: string,
+  ): Promise<Map<string, InvestorBrief>> {
     const deposits = await this.prisma.campaignDeposit.findMany({
       where: { campaignId },
-      select: { investor: { select: { withdrawalAddress: true } } },
+      select: {
+        investor: {
+          select: {
+            id: true,
+            withdrawalAddress: true,
+            type: true,
+            companyName: true,
+            firstName: true,
+            lastName: true,
+            country: true,
+          },
+        },
+      },
     });
-    return deposits
-      .map((item) => item.investor.withdrawalAddress)
-      .filter((address): address is string => Boolean(address));
+
+    const map = new Map<string, InvestorBrief>();
+    for (const { investor } of deposits) {
+      if (!investor.withdrawalAddress) continue;
+      map.set(investor.withdrawalAddress, {
+        investorId: investor.id,
+        type: investor.type,
+        title: investorTitle(investor),
+        country: investor.country,
+      });
+    }
+    return map;
   }
 
   /** Кампания с выпущенной бумагой: без неё корпоративных действий нет. */

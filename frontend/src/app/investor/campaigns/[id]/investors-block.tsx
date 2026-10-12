@@ -59,11 +59,11 @@ export function InvestorsBlock({
             key={share.address}
             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm"
           >
-            <a
-              href={share.url}
-              target="_blank"
-              rel="noreferrer"
-              className="font-mono text-xs text-muted hover:text-accent"
+            {/* Доли анонимны: адрес здесь — PDA служебного аккаунта позиции,
+                он никого не называет, а в обозревателе человеку ничего не
+                говорит. Поэтому просто подпись без ссылки. */}
+            <span
+              className="font-mono text-xs text-muted"
               title={share.address}
             >
               {shortAddress(share.address)}
@@ -72,7 +72,7 @@ export function InvestorsBlock({
                   вы
                 </span>
               ) : null}
-            </a>
+            </span>
             <span className="tabular-nums">
               {formatMoney(share.principal, decimals)}
               <span className="ml-2 text-muted">{share.shareBps / 100}%</span>

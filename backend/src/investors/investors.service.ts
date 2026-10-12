@@ -295,6 +295,19 @@ export class InvestorsService {
 
   // ── Админ ────────────────────────────────────────────────────────────────
 
+  /**
+   * `userId` инвестора по его `id` в анкете. Нужен админу: портфель и бумаги
+   * считаются по пользователю, а в карточке на руках только анкета.
+   */
+  async userIdOf(id: string): Promise<string> {
+    const investor = await this.prisma.investor.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+    if (!investor) throw new NotFoundException('Инвестор не найден');
+    return investor.userId;
+  }
+
   async list(filter: ListInvestorsDto) {
     const where: Prisma.InvestorWhereInput = {};
     if (filter.status) where.status = filter.status;

@@ -100,6 +100,11 @@ describe('Облигации и корпоративные действия (e2e
   async function cleanup() {
     await prisma.campaign.deleteMany({ where: { borrower: { bin: BIN } } });
     await prisma.borrower.deleteMany({ where: { bin: BIN } });
+    // Выгрузка персональных данных пишется в журнал админа, а он ссылается
+    // на пользователя: без этого удаление упирается во внешний ключ.
+    await prisma.adminAction.deleteMany({
+      where: { actor: { email: ADMIN.email } },
+    });
     await prisma.user.deleteMany({ where: { email: { in: EMAILS } } });
   }
 
@@ -119,6 +124,10 @@ describe('Облигации и корпоративные действия (e2e
           Promise.resolve(
             new Map(ids.map((id) => [String(id), { state: dealState }])),
           ),
+        campaignPositions: () => Promise.resolve([]),
+        vaultAddress: () => ({ toBase58: () => 'vault' }),
+        positionPda: () => ({ toBase58: () => 'position' }),
+        position: () => Promise.resolve(null),
         deal: () =>
           Promise.resolve({
             state: dealState,
@@ -298,11 +307,17 @@ describe('Облигации и корпоративные действия (e2e
         status: UserStatus.ACTIVE,
       },
     });
-    const holder = (email: string, passwordHash: string, wallet: string) =>
+    const holder = (
+      email: string,
+      passwordHash: string,
+      wallet: string,
+      // Имя и страна нужны реестру: регистратор знает держателей поимённо.
+      person: { firstName: string; lastName: string; country: string },
+    ) =>
       prisma.user.create({
         data: {
           email,
-          name: 'Держатель',
+          name: `${person.firstName} ${person.lastName}`,
           passwordHash,
           role: Role.INVESTOR,
           status: UserStatus.ACTIVE,
@@ -312,12 +327,23 @@ describe('Облигации и корпоративные действия (e2e
               withdrawalAddress: wallet,
               onchainAccount: 'UserAccount1111111111111111111111111111111',
               whitelistStatus: true,
+              firstName: person.firstName,
+              lastName: person.lastName,
+              country: person.country,
             },
           },
         },
       });
-    await holder(ALICE.email, await hash(ALICE.password), ALICE_WALLET);
-    await holder(BOB.email, await hash(BOB.password), BOB_WALLET);
+    await holder(ALICE.email, await hash(ALICE.password), ALICE_WALLET, {
+      firstName: 'Alice',
+      lastName: 'Nakamura',
+      country: 'SGP',
+    });
+    await holder(BOB.email, await hash(BOB.password), BOB_WALLET, {
+      firstName: 'Bob',
+      lastName: 'Keller',
+      country: 'CHE',
+    });
 
     const borrower = await prisma.borrower.create({
       data: { name: 'ТОО «Эмитент»', bin: BIN },
@@ -346,6 +372,23 @@ describe('Облигации и корпоративные действия (e2e
     ).id;
     loanId = (await campaign('Кредит на проверку', ScheduleKind.ANNUITY, 502n))
       .id;
+
+    // Адреса пополнения: по ним платформа и знает, кто держатель. Без них
+    // реестр остался бы безымянным, как было до появления этой связи.
+    for (const email of [ALICE.email, BOB.email]) {
+      const investor = await prisma.investor.findFirstOrThrow({
+        where: { user: { email } },
+        select: { id: true, withdrawalAddress: true },
+      });
+      await prisma.campaignDeposit.create({
+        data: {
+          investorId: investor.id,
+          campaignId: bondId,
+          owner: `owner-${investor.withdrawalAddress}`,
+          address: `token-${investor.withdrawalAddress}`,
+        },
+      });
+    }
 
     const login = async (email: string, password: string) => {
       const response = await http()
@@ -808,6 +851,100 @@ describe('Облигации и корпоративные действия (e2e
         .expect(200);
 
       expect(chain.actions[index].status).toBe('closed');
+    });
+  });
+
+  describe('реестр поимённо', () => {
+    /** Служебный реестр уже снят предыдущим блоком — на нём и проверяем. */
+    const recordIndex = async () => {
+      const page = await http()
+        .get(`/bonds/${bondId}`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+      return (page.body as { actions: { kind: string; index: number }[] })
+        .actions.find((item) => item.kind === 'record')!.index;
+    };
+
+    it('держатели на экране админа названы по анкете', async () => {
+      const page = await http()
+        .get(`/bonds/${bondId}`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+
+      const holders = (
+        page.body as {
+          holders: {
+            holder: string;
+            investor: { title: string; investorId: string; country: string } | null;
+          }[];
+        }
+      ).holders;
+      const alice = holders.find((row) => row.holder === ALICE_WALLET);
+      expect(alice?.investor?.title).toBe('Alice Nakamura');
+      expect(alice?.investor?.country).toBe('SGP');
+      expect(alice?.investor?.investorId).toBeTruthy();
+    });
+
+    it('выписка — документ: имя, доля и оговорка про хеш', async () => {
+      const response = await http()
+        .get(`/bonds/${bondId}/register/${await recordIndex()}/csv`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+
+      const body = response.text;
+      expect(body).toContain('Лицевой счёт');
+      expect(body).toContain('Доля, %');
+      expect(body).toContain('Alice Nakamura');
+      expect(body).toContain('Физическое лицо');
+      // Ответ на вопрос «что мешает подменить имя» стоит в самом документе.
+      expect(body).toContain('имя и страна — атрибуты анкеты');
+      // Удостоверяющих данных в обычной выписке нет.
+      expect(body).not.toContain('Удостоверяющий документ');
+    });
+
+    it('расширенная выписка добавляет документы и пишется в журнал', async () => {
+      const index = await recordIndex();
+      const before = await prisma.adminAction.count({
+        where: { action: 'registerFullExport' },
+      });
+
+      const response = await http()
+        .get(`/bonds/${bondId}/register/${index}/csv?full=1`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+
+      expect(response.text).toContain('Удостоверяющий документ');
+      expect(
+        await prisma.adminAction.count({
+          where: { action: 'registerFullExport' },
+        }),
+      ).toBe(before + 1);
+    });
+
+    it('журнал выгружается таблицей с кодами ISO 15022', async () => {
+      const response = await http()
+        .get(`/bonds/${bondId}/journal/csv`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+
+      expect(response.text).toContain('CAEV');
+      expect(response.text).toContain('Купон');
+      expect(response.text).toContain('INTR');
+    });
+
+    /**
+     * Имена — только админу. Инвестор видит анонимные доли, и это не вопрос
+     * вкуса: иначе платформа раздавала бы персональные данные участникам.
+     */
+    it('инвестору имена других не достаются', async () => {
+      const response = await http()
+        .get(`/investors/me/campaigns/${bondId}`)
+        .set('Cookie', bobCookie)
+        .expect(200);
+
+      const body = JSON.stringify(response.body);
+      expect(body).not.toContain('Nakamura');
+      expect(body).not.toContain('investorId');
     });
   });
 

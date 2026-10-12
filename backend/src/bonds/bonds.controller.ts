@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   ParseUUIDPipe,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -93,14 +94,38 @@ export class BondsController {
     return serialize(await this.bonds.register(campaignId, index));
   }
 
-  /** Список держателей таблицей: то, что регистратор отдаёт эмитенту. */
+  /**
+   * Список держателей таблицей: то, что регистратор отдаёт эмитенту.
+   * С `full=1` в выписку добавляются удостоверяющие данные — это уже
+   * персональные данные, поэтому такая выгрузка пишется в журнал админа.
+   */
   @Get(':campaignId/register/:index/csv')
   async registerCsv(
     @Param('campaignId', ParseUUIDPipe) campaignId: string,
     @Param('index', ParseIntPipe) index: number,
+    @Query('full') full: string | undefined,
+    @CurrentUser() session: SessionPayload,
     @Res() response: Response,
   ) {
-    const { fileName, body } = await this.bonds.registerCsv(campaignId, index);
+    const { fileName, body } = await this.bonds.registerCsv(campaignId, index, {
+      full: full === '1' || full === 'true',
+      actorId: session.sub,
+    });
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`,
+    );
+    response.send(body);
+  }
+
+  /** Журнал корпоративных действий выпуска таблицей — как у регистратора. */
+  @Get(':campaignId/journal/csv')
+  async journalCsv(
+    @Param('campaignId', ParseUUIDPipe) campaignId: string,
+    @Res() response: Response,
+  ) {
+    const { fileName, body } = await this.bonds.journalCsv(campaignId);
     response.setHeader('Content-Type', 'text/csv; charset=utf-8');
     response.setHeader(
       'Content-Disposition',
