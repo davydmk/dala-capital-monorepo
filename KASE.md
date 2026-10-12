@@ -132,6 +132,12 @@ Identity — name, holder type, country — is written **into the snapshot at th
 
 **Names are visible to the administrator only.** Investors see each other as anonymous shares; an end-to-end test asserts that no name reaches an investor's response.
 
+### Repairing the register
+
+A move between two addresses — what happens when a holder changes their withdrawal address — burns on one account and mints on the other. Both go in **one transaction**, because a half-applied move would leave a holder with no evidence of a claim they still legally hold. We learned this the hard way on devnet: the two legs were separate transactions, the second was not confirmed within thirty seconds, and 251 units were burned and never re-issued.
+
+The registrar also has a **reconcile** action: it compares each holder's paid-in lots against their on-chain balance and re-issues what is missing. A confirmation timeout says nothing about whether a transaction landed, so a registrar that cannot repair its own register is not a registrar. Surplus units are never burned by it — that is not a connectivity glitch, that is something to look into by hand.
+
 ### What the registrar hands out
 
 | Document | Contents |

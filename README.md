@@ -24,6 +24,8 @@ Two loan shapes. A **loan** amortises on an annuity schedule, and the investor's
 
 **The holder register is stored off-chain; its hash goes on-chain.** Keeping the full list in an account would be expensive and pointless: the published list can be recomputed by anyone and verified against the anchored digest.
 
+**A move cannot half-apply.** When a holder changes their withdrawal address, the note is burned on the old account and minted on the new one in **one transaction** — a half-applied move would leave a holder without evidence of a claim they still hold. The registrar can also reconcile: compare paid-in lots against on-chain balances and re-issue what a failed transaction left missing.
+
 **The register is kept by name.** Notes are minted only to investors' withdrawal addresses and cannot be transferred, so the platform always knows who is behind an address. Identity is written into the snapshot when it is taken, not looked up later, so an extract for a past record date still shows the name of that date. The hash covers accounts, units and amounts — not names: a name is an attribute of the KYC file, and substituting it changes nobody's entitlement. Names are visible to the administrator only; investors see each other as anonymous shares.
 
 **Documents a registrar hands out.** A register extract in CSV — holder, type, country, securities account, units, share of the issue, amount due — with a second, journalled export that adds identifying documents. Corporate-action notices in the ISO 15022 layout: MT564 while declared, MT566 once settled, with `CAEV`/`CAMV` codes and the ISIN. And the whole action journal as a table.
