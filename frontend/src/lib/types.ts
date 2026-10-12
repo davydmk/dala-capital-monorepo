@@ -1005,7 +1005,6 @@ export type PartialPrepayBlock =
   | 'NOT_ALLOWED'
   | 'NOT_ACTIVE'
   | 'NOT_PAYMENT_DATE'
-  | 'HAS_OVERDUE'
   | 'HAS_ADVANCE'
   | 'LAST_PERIOD';
 

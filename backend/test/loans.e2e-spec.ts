@@ -823,11 +823,31 @@ describe('Закрытие сбора и кабинет заёмщика (e2e)',
       expect(BigInt(prepayment.full!.total)).toBeGreaterThan(606n * USDC);
     });
 
-    it('при просрочке окно частичного закрыто, даже если дата подходит', async () => {
+    /**
+     * Наступивший платёж окну не мешает: контракт закрывает его той же
+     * инструкцией, а котировка кладёт эту сумму в итог. Раньше окно
+     * закрывалось, и копеечный остаток — он почти неизбежен, проценты идут по
+     * секундам — лишал заёмщика права, за которое он платит комиссию.
+     */
+    it('при наступившем платеже окно открыто, долг войдёт в котировку', async () => {
       const response = await page(overdueId);
-      expect((response.body as Page).prepayment.partial.block).toBe(
-        'HAS_OVERDUE',
-      );
+      const body = response.body as Page;
+      expect(body.prepayment.partial.block).toBeNull();
+      expect(body.prepayment.partial.open).toBe(true);
+
+      const quote = await http()
+        .post(`/borrowers/me/loans/${overdueId}/prepay/quote`)
+        .set('Cookie', borrowerCookie)
+        .send({ amount: (10n * USDC).toString() })
+        .expect(200);
+      const { due, principal, fee, total } = quote.body as {
+        due: string;
+        principal: string;
+        fee: string;
+        total: string;
+      };
+      expect(BigInt(due)).toBeGreaterThan(0n);
+      expect(BigInt(total)).toBe(BigInt(due) + BigInt(principal) + BigInt(fee));
     });
 
     it('вне суток с даты платежа окно закрыто', async () => {

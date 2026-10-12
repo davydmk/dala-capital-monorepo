@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SolanaService } from '../solana/solana.service.js';
 import { uuidToBytes } from '../solana/user-id.js';
 import { investorTitle, type InvestorBrief } from '../investors/title.js';
+import { explainFailure } from '../investors/deposit-errors.js';
 import { campaignStatus, overdueNow } from '../investors/campaign-status.js';
 import {
   couponPerUnit,
@@ -276,8 +277,9 @@ export class BondsService {
    * моменту уже сменён в контракте, и ронять смену из-за бумаги нельзя —
    * её довыпустят отдельно.
    */
-  async moveBonds(from: string | null, to: string): Promise<void> {
-    if (!from || from === to) return;
+  async moveBonds(from: string | null, to: string): Promise<string[]> {
+    if (!from || from === to) return [];
+    const failed: string[] = [];
 
     // Идём по всем выпускам, а не только по тем, где у инвестора есть взнос:
     // бумага могла прийти и переносом с прошлого адреса.
@@ -295,8 +297,9 @@ export class BondsService {
       try {
         const units = await this.unitsOf(onchainId, from);
         if (units === 0n) continue;
-        await this.bonds.burnFromHolder(onchainId, from, units, false);
-        await this.bonds.mintToHolder(onchainId, to, units);
+        // Одной транзакцией: прожиг и выпуск вместе. Двумя нельзя — если
+        // вторая не подтвердится, бумаги окажутся сожжены и не выпущены.
+        await this.bonds.moveHolder(onchainId, from, to, units);
         this.logger.log(
           `Бумаги по кампании ${campaign.id} перенесены на новый адрес вывода`,
         );
@@ -304,8 +307,75 @@ export class BondsService {
         this.logger.error(
           `Не удалось перенести бумаги по кампании ${campaign.id}: ${String(error)}`,
         );
+        failed.push(campaign.id);
       }
     }
+
+    // Наружу отдаём список выпусков, по которым перенос не прошёл: смена
+    // адреса уже состоялась, и молчать о расхождении нельзя — реестр
+    // приводится в порядок сверкой.
+    return failed;
+  }
+
+  /**
+   * Сверяет реестр с долями в контракте и довыпускает недостающие бумаги.
+   *
+   * Нужна, когда перенос или выпуск при зачислении не довёл дело до конца:
+   * таймаут подтверждения ничего не говорит о судьбе транзакции, а бумага —
+   * доказательство права, и её отсутствие надо уметь исправить. Лишние
+   * бумаги не прожигаются: это не ошибка связи, а повод разобраться руками.
+   */
+  async reconcile(campaignId: string) {
+    const { campaign, onchainId, registry } =
+      await this.bondCampaign(campaignId);
+    if (registry.status !== 'active') {
+      throw new BadRequestException(
+        'Сверка возможна только у действующего выпуска: у погашенного и аннулированного бумаг быть не должно',
+      );
+    }
+
+    const faceValue = registry.faceValue;
+    const deposits = await this.prisma.campaignDeposit.findMany({
+      where: { campaignId: campaign.id },
+      select: {
+        credits: { select: { amount: true } },
+        investor: { select: { id: true, withdrawalAddress: true } },
+      },
+    });
+
+    const rows: {
+      holder: string;
+      expected: bigint;
+      actual: bigint;
+      minted: bigint;
+    }[] = [];
+    for (const deposit of deposits) {
+      const holder = deposit.investor.withdrawalAddress;
+      if (!holder) continue;
+
+      // Сколько бумаг держателю причитается: взнос, оформленный лотами по
+      // номиналу. Остаток меньше лота бумагой не оформляется.
+      const credited = deposit.credits.reduce(
+        (sum, credit) => sum + credit.amount,
+        0n,
+      );
+      const expected = faceValue > 0n ? credited / faceValue : 0n;
+      const actual = await this.unitsOf(onchainId, holder);
+      let minted = 0n;
+      if (expected > actual) {
+        minted = expected - actual;
+        await this.bonds.mintToHolder(onchainId, holder, minted);
+      }
+      rows.push({ holder, expected, actual, minted });
+    }
+
+    const issued = rows.reduce((sum, row) => sum + row.minted, 0n);
+    if (issued > 0n) {
+      this.logger.warn(
+        `Сверка реестра ${campaign.id}: довыпущено ${issued} бумаг`,
+      );
+    }
+    return { rows, issued };
   }
 
   /**
@@ -332,6 +402,11 @@ export class BondsService {
       onchainId,
       await this.candidates(campaignId),
     );
+    if (holders.length === 0) {
+      throw new BadRequestException(
+        'Гасить нечего: бумаг в обращении не осталось',
+      );
+    }
     let burned = 0;
     for (const row of holders) {
       await this.bonds.burnFromHolder(onchainId, row.holder, row.units, true);
@@ -543,13 +618,20 @@ export class BondsService {
       );
     }
 
-    const signature = await this.bonds.settleAction(
-      onchainId,
-      index,
-      settlement ?? null,
-      votesFor,
-      votesAgainst,
-    );
+    let signature: string;
+    try {
+      signature = await this.bonds.settleAction(
+        onchainId,
+        index,
+        settlement ?? null,
+        votesFor,
+        votesAgainst,
+      );
+    } catch (error) {
+      // Контракт объясняет отказ сам — «Реестр по действию ещё не снят» и
+      // прочее; отдавать вместо этого 500 значит прятать готовый ответ.
+      throw new BadRequestException(explainFailure(error).reason);
+    }
     return {
       signature,
       settlement: settlement ?? null,

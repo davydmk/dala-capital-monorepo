@@ -170,11 +170,21 @@ describe('окно частичного погашения', () => {
     expect(at(loan, periods[11].dueTs).block).toBe('LAST_PERIOD');
   });
 
-  it('с просрочкой закрыто', () => {
+  /**
+   * Наступивший платёж окну не мешает: контракт закрывает его той же
+   * инструкцией, а котировка кладёт эту сумму в итог. Иначе копеечный
+   * остаток — а он почти неизбежен, проценты идут по секундам — лишал бы
+   * заёмщика права, за которое он платит комиссию.
+   */
+  it('с наступившим платежом окно открыто, он войдёт в котировку', () => {
     const loan = afterSixPayments();
-    // Седьмой платёж наступил и не оплачен — сначала его.
     const now = loan.periods[6].dueTs;
-    expect(at(loan, now).block).toBe('HAS_OVERDUE');
+    const window = at(loan, now);
+    expect(window.open).toBe(true);
+    expect(window.block).toBeNull();
+    const quote = quotePartial(loan, 10n * USDC, now);
+    expect(quote.due).toBeGreaterThan(0n);
+    expect(quote.total).toBe(quote.due + quote.principal + quote.fee);
   });
 
   it('с авансом закрыто', () => {

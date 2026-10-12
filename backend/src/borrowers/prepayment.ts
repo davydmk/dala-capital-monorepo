@@ -100,7 +100,6 @@ export type PartialBlock =
   | 'NOT_ALLOWED'
   | 'NOT_ACTIVE'
   | 'NOT_PAYMENT_DATE'
-  | 'HAS_OVERDUE'
   | 'HAS_ADVANCE'
   | 'LAST_PERIOD';
 
@@ -152,12 +151,15 @@ export function partialWindow(deal: PrepayInput, now: number): PartialWindow {
     return closed('NOT_PAYMENT_DATE', { opensAt: upcoming });
   }
 
-  // Просрочку нужно закрыть обычным платежом, аванс — помеха пересчёту.
-  const due = amountDue(deal, now);
-  if (due.total > 0n) {
-    return closed('HAS_OVERDUE', { opensAt: upcoming, closesAt });
-  }
-
+  // Причитающееся на сегодня окну не мешает: контракт закрывает его первым
+  // той же инструкцией — `prepay_partial_settling_due`, — а котировка кладёт
+  // эту сумму в итог. Закрывать окно из-за копеечного остатка значило бы
+  // лишать заёмщика права, за которое он платит комиссию: проценты и пеня
+  // начисляются по секундам, и платёж ровно по показанной сумме почти всегда
+  // оставляет пыль.
+  //
+  // Аванс — другое дело, его контракт не принимает: пересчитывать график,
+  // часть которого уже оплачена вперёд, он отказывается.
   let balance = 0n;
   for (const period of deal.periods.slice(next)) {
     if (period.principalPaid > 0n || period.interestPaid > 0n) {

@@ -451,6 +451,12 @@ export const api = {
     /** Журнал корпоративных действий выпуска таблицей. */
     journalCsvUrl: (campaignId: string) =>
       `/api/bonds/${campaignId}/journal/csv`,
+    /** Сверка реестра с долями в контракте: довыпускает недостающие бумаги. */
+    reconcile: (campaignId: string) =>
+      request<{ issued: string; rows: { holder: string; minted: string }[] }>(
+        `/bonds/${campaignId}/reconcile`,
+        { method: 'POST' },
+      ),
     /** Уведомление о корпоративном действии в раскладке ISO 15022. */
     noticeUrl: (campaignId: string, index: number) =>
       `/api/bonds/${campaignId}/actions/${index}/notice`,

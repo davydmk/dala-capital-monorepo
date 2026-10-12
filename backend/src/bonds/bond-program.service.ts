@@ -7,7 +7,9 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  sendAndConfirmTransaction,
   SystemProgram,
+  Transaction,
   type TransactionSignature,
 } from '@solana/web3.js';
 import idl from '../solana/idl/dala_actions.json' with { type: 'json' };
@@ -367,6 +369,41 @@ export class BondProgramService implements OnModuleInit {
       .accountsStrict(this.holderAccounts(campaignId, holder))
       .signers([this.operator])
       .rpc();
+  }
+
+  /**
+   * Переносит бумаги с одного адреса держателя на другой **одной
+   * транзакцией**: прожиг и выпуск идут в ней двумя инструкциями.
+   *
+   * Двумя транзакциями делать нельзя. Если вторая не подтвердится — а на
+   * сети это бывает, таймаут подтверждения ничего не говорит о судьбе
+   * транзакции, — бумаги окажутся сожжены и не выпущены, и держатель
+   * останется без доказательства права. Так однажды и случилось на стенде.
+   */
+  async moveHolder(
+    campaignId: bigint,
+    from: string,
+    to: string,
+    units: bigint,
+  ): Promise<TransactionSignature> {
+    const amount = new BN(units.toString());
+    const id = new BN(campaignId.toString());
+    const burn = await this.program.methods
+      .burnFromHolder(id, amount, false)
+      .accountsStrict(this.holderAccounts(campaignId, from))
+      .instruction();
+    const mint = await this.program.methods
+      .mintToHolder(id, amount)
+      .accountsStrict(this.holderAccounts(campaignId, to))
+      .instruction();
+
+    const transaction = new Transaction().add(burn, mint);
+    return sendAndConfirmTransaction(
+      this.connection,
+      transaction,
+      [this.operator],
+      { commitment: 'confirmed' },
+    );
   }
 
   private holderAccounts(campaignId: bigint, holder: string) {

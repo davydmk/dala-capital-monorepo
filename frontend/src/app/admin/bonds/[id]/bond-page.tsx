@@ -1,7 +1,13 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Download, ExternalLink, Flame } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  Flame,
+  RefreshCw,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import clsx from 'clsx';
@@ -121,6 +127,18 @@ export function BondPageView({ id }: { id: string }) {
     mutationFn: (index) => api.bonds.close(id, index),
     onSuccess: save,
   });
+  // Сверка реестра: довыпускает бумаги, которых у держателей нет, хотя взнос
+  // оформлен. Её результат — не состояние экрана, а ответ на нажатие, поэтому
+  // держим в мутации и показываем рядом с кнопкой.
+  const reconcile = useMutation<
+    { issued: string; rows: { holder: string; minted: string }[] },
+    ApiError,
+    void
+  >({
+    mutationFn: () => api.bonds.reconcile(id),
+    onSuccess: () => bond.refetch(),
+  });
+
   const redeem = useMutation<BondPage, ApiError, void>({
     mutationFn: () => api.bonds.redeem(id),
     onSuccess: save,
@@ -455,7 +473,39 @@ export function BondPageView({ id }: { id: string }) {
       </Card>
 
       <Card>
-        <CardTitle>Держатели</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>Держатели</CardTitle>
+          {registry.status === 'active' ? (
+            <Button
+              variant="ghost"
+              loading={reconcile.isPending}
+              onClick={() => reconcile.mutate()}
+            >
+              <RefreshCw size={16} aria-hidden /> Сверить реестр
+            </Button>
+          ) : null}
+        </div>
+        {reconcile.isError ? (
+          <div className="mb-3">
+            <Notice tone="danger" title={reconcile.error.message} />
+          </div>
+        ) : null}
+        {reconcile.data ? (
+          <div className="mb-3">
+            <Notice
+              tone={reconcile.data.issued === '0' ? 'info' : 'warning'}
+              title={
+                reconcile.data.issued === '0'
+                  ? 'Реестр сходится с долями в контракте'
+                  : `Довыпущено бумаг: ${reconcile.data.issued}`
+              }
+            >
+              {reconcile.data.issued === '0'
+                ? undefined
+                : 'У держателей не хватало бумаг по их взносам — например, перенос на новый адрес вывода не довёл дело до конца.'}
+            </Notice>
+          </div>
+        ) : null}
         <p className="mb-3 text-sm text-muted">
           Реестр ведёт платформа как регистратор: держатель известен по анкете,
           имя ведёт в неё. Хеш списка, который уходит в сеть, покрывает лицевые

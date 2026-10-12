@@ -396,8 +396,12 @@ export class LoansService {
       const after = await this.solana.tokenBalance(address);
       result = {
         received: before - after,
+        // У зачёта два смысла, и путать их нельзя: пока платить нечего, деньги
+        // уходят в ненаступившие платежи, а если долг уже наступил — в него.
         message: asOperator
-          ? 'Излишек зачтён в счёт будущих платежей'
+          ? due.total > 0n
+            ? 'Деньги зачтены в счёт наступившего платежа'
+            : 'Излишек зачтён в счёт будущих платежей'
           : 'Платёж проведён',
       };
     } catch (error) {

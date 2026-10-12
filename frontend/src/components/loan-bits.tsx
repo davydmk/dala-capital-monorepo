@@ -115,17 +115,40 @@ export function DueBreakdown({
         </div>
       </dl>
       {due.total !== '0' && accruedTo < now ? (
-        <p className="mt-2 text-xs text-muted">
-          Проценты и пеня посчитаны на {formatDateTime(now)}; контракт закрепит
-          их в момент платежа. Переводите с небольшим запасом — излишек
-          останется на адресе погашения и не пропадёт.
-        </p>
+        <>
+          <p className="mt-2 text-sm">
+            Рекомендуем перевести{' '}
+            <span className="font-medium tabular-nums">
+              {formatMoney(roundUp(due.total, decimals), decimals)}
+            </span>{' '}
+            — с запасом.
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Проценты и пеня посчитаны на {formatDateTime(now)}, а начисляются
+            они по секундам: пока перевод идёт, долг немного подрастёт, и платёж
+            ровно по этой сумме оставит копейки непогашенными. Излишек не
+            пропадёт — он дождётся следующего платежа, а после закрытия займа
+            вернётся на ваш кошелёк.
+          </p>
+        </>
       ) : null}
     </div>
   );
 }
 
 /** График платежей с отметками: что оплачено, что наступило, что впереди. */
+/**
+ * Сумма с запасом: округляем вверх до целой единицы токена. Ровно столько,
+ * чтобы начисление за время перевода не оставило долга, и не больше — излишек
+ * заёмщику всё равно возвращается, но пугать его лишним нулём незачем.
+ */
+function roundUp(value: string, decimals: number): string {
+  const unit = 10n ** BigInt(decimals);
+  const amount = BigInt(value);
+  const whole = amount % unit === 0n ? amount / unit : amount / unit + 1n;
+  return (whole * unit).toString();
+}
+
 /**
  * Что внести и до какого срока. Требование к оплате контракт показывает ровно
  * в секунду наступления срока — и с той же секунды начисляет пеню, льготного
@@ -144,7 +167,11 @@ export function NextPaymentNotice({
   // Пеня за сутки по той же ставке, что в кампании: год здесь 360 дней — так
   // его считает контракт в начислении.
   const perDay = penaltyRateBps
-    ? ((BigInt(next.total) * BigInt(penaltyRateBps)) / 10_000n / 360n).toString()
+    ? (
+        (BigInt(next.total) * BigInt(penaltyRateBps)) /
+        10_000n /
+        360n
+      ).toString()
     : '0';
   return (
     <div className="rounded-lg border border-border bg-background p-3">

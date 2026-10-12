@@ -4,6 +4,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -67,6 +68,8 @@ const CONTACT_FIELDS = new Set(['phone']);
 
 @Injectable()
 export class InvestorsService {
+  private readonly logger = new Logger(InvestorsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -539,10 +542,20 @@ export class InvestorsService {
     // Бумаги именные и лежат на адресе вывода: со сменой адреса они переезжают
     // туда же, иначе право требования осталось бы на счёте, который инвестор
     // больше не считает своим.
-    await this.bonds.moveBonds(investor.withdrawalAddress, address);
+    const unmoved = await this.bonds.moveBonds(
+      investor.withdrawalAddress,
+      address,
+    );
+    if (unmoved.length > 0) {
+      // Адрес в контракте уже сменён, откатывать нечего — но молчать о
+      // расхождении нельзя: реестр приводится в порядок сверкой.
+      this.logger.error(
+        `Бумаги не переехали на новый адрес ${investor.id}: выпуски ${unmoved.join(', ')}`,
+      );
+    }
 
     const account = await this.solana.userAccount(userId);
-    return this.prisma.investor.update({
+    await this.prisma.investor.update({
       where: { id },
       data: {
         withdrawalAddress: address,
@@ -554,6 +567,10 @@ export class InvestorsService {
       },
       include: INCLUDE,
     });
+
+    // Форму ответа не меняем — это карточка инвестора, как у остальных
+    // решений админа; список непереехавших выпусков идёт рядом полем.
+    return { ...(await this.byId(id)), unmoved };
   }
 
   // ── Вспомогательное ──────────────────────────────────────────────────────

@@ -119,6 +119,17 @@ export class BondsController {
     response.send(body);
   }
 
+  /**
+   * Сверка реестра с долями в контракте: довыпускает бумаги, которые должны
+   * быть у держателей, но в сети их нет. Нужна, когда перенос или выпуск при
+   * зачислении не довёл дело до конца.
+   */
+  @Post(':campaignId/reconcile')
+  @HttpCode(200)
+  async reconcile(@Param('campaignId', ParseUUIDPipe) campaignId: string) {
+    return serialize(await this.bonds.reconcile(campaignId));
+  }
+
   /** Журнал корпоративных действий выпуска таблицей — как у регистратора. */
   @Get(':campaignId/journal/csv')
   async journalCsv(

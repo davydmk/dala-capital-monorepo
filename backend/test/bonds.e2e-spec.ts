@@ -189,6 +189,14 @@ describe('Облигации и корпоративные действия (e2e
           chain.registry!.outstanding += units;
           return Promise.resolve('signature-mint');
         },
+        // Перенос в сети — одна транзакция с двумя инструкциями; половинчатого
+        // состояния в ней не бывает, поэтому и в модели его нет.
+        moveHolder: (_id: bigint, from: string, to: string, units: bigint) => {
+          chain.holders.set(from, (chain.holders.get(from) ?? 0n) - units);
+          chain.holders.set(to, (chain.holders.get(to) ?? 0n) + units);
+          chain.registry!.issued += units;
+          return Promise.resolve('signature-move');
+        },
         burnFromHolder: (
           _id: bigint,
           holder: string,
@@ -270,6 +278,14 @@ describe('Облигации и корпоративные действия (e2e
           votesFor: bigint,
           votesAgainst: bigint,
         ) => {
+          // Порядок стадий держит контракт, и модель держит его так же:
+          // исполнить, не сняв реестр, нельзя.
+          if (chain.actions[index].status === 'declared') {
+            return Promise.reject({
+              errorCode: { code: 'SnapshotMissing' },
+              errorMessage: 'Реестр по действию ещё не снят',
+            });
+          }
           Object.assign(chain.actions[index], {
             settlement,
             votesFor,
@@ -854,6 +870,30 @@ describe('Облигации и корпоративные действия (e2e
     });
   });
 
+  describe('порядок стадий', () => {
+    /**
+     * Контракт объясняет отказ сам, и этот текст должен доходить до админа:
+     * раньше на его месте был 500, то есть готовый ответ пропадал.
+     */
+    it('исполнение без снятого реестра объясняется словами, а не пятисоткой', async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const declared = await http()
+        .post(`/bonds/${bondId}/actions`)
+        .set('Cookie', adminCookie)
+        .send({ kind: 'coupon', recordTs: now - 5, paymentTs: now + 60 })
+        .expect(200);
+      const index = (declared.body as { index: number }).index;
+
+      const refused = await http()
+        .post(`/bonds/${bondId}/actions/${index}/settle`)
+        .set('Cookie', adminCookie)
+        .expect(400);
+      expect((refused.body as { message: string }).message).toContain(
+        'Реестр по действию ещё не снят',
+      );
+    });
+  });
+
   describe('реестр поимённо', () => {
     /** Служебный реестр уже снят предыдущим блоком — на нём и проверяем. */
     const recordIndex = async () => {
@@ -861,8 +901,9 @@ describe('Облигации и корпоративные действия (e2e
         .get(`/bonds/${bondId}`)
         .set('Cookie', adminCookie)
         .expect(200);
-      return (page.body as { actions: { kind: string; index: number }[] })
-        .actions.find((item) => item.kind === 'record')!.index;
+      return (
+        page.body as { actions: { kind: string; index: number }[] }
+      ).actions.find((item) => item.kind === 'record')!.index;
     };
 
     it('держатели на экране админа названы по анкете', async () => {
@@ -875,7 +916,11 @@ describe('Облигации и корпоративные действия (e2e
         page.body as {
           holders: {
             holder: string;
-            investor: { title: string; investorId: string; country: string } | null;
+            investor: {
+              title: string;
+              investorId: string;
+              country: string;
+            } | null;
           }[];
         }
       ).holders;
@@ -953,10 +998,10 @@ describe('Облигации и корпоративные действия (e2e
 
     it('бумаги переезжают на новый адрес, в обращении не меняется', async () => {
       const bonds = app.get<{
-        moveBonds: (from: string, to: string) => Promise<void>;
+        moveBonds: (from: string, to: string) => Promise<string[]>;
       }>((await import('../src/bonds/bonds.service.js')).BondsService);
 
-      await bonds.moveBonds(ALICE_WALLET, MOVED);
+      expect(await bonds.moveBonds(ALICE_WALLET, MOVED)).toEqual([]);
 
       expect(chain.holders.get(ALICE_WALLET)?.toString()).toBe('0');
       expect(chain.holders.get(MOVED)?.toString()).toBe('4');
