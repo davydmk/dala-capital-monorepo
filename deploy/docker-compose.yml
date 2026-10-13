@@ -20,7 +20,9 @@ services:
       -c effective_cache_size=512MB
       -c max_connections=50
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # У образа 18-й версии данные лежат в подкаталоге: том монтируется
+      # уровнем выше, иначе контейнер отказывается стартовать.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 10s
