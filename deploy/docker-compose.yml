@@ -50,6 +50,22 @@ services:
       postgres:
         condition: service_healthy
 
+  # Миграции гоняются отдельной службой: в рабочем образе бэкенда CLI Prisma
+  # нет — он среди зависимостей разработки и вырезан, чтобы образ не раздувать.
+  # Профиль не даёт ей подниматься вместе с остальными.
+  migrate:
+    build:
+      context: ../backend
+      target: build
+    profiles: ['tools']
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     build:
       context: ../frontend
