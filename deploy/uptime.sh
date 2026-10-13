@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 set -a; . ./.env; set +a
 
 LOG=/srv/dala/uptime.log
-CODE=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$APP_DOMAIN/health" || echo 000)
+CODE=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "https://$APP_DOMAIN/api/health" || echo 000)
 if [ "$CODE" != "200" ]; then
   echo "$(date -Is) health=$CODE" >> "$LOG"
   # Перезапускаем только то, что действительно лежит: compose сам поднимет
