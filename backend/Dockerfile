@@ -17,7 +17,12 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY . .
-RUN pnpm build && pnpm prune --prod
+RUN pnpm build
+
+# Урезание зависимостей — отдельным слоем. В самом сборочном оставляем всё:
+# оттуда же гоняются миграции, а CLI Prisma живёт в зависимостях разработки.
+FROM build AS pruned
+RUN pnpm prune --prod
 
 FROM node:24-slim AS runtime
 WORKDIR /app
@@ -28,7 +33,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl curl \
   && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=pruned /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/package.json ./package.json
