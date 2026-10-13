@@ -1,0 +1,80 @@
+# Боевой стенд: четыре службы в одной сети, наружу смотрит только Caddy.
+#
+# Образы собираются на самой машине из соседних каталогов репозитория — реестра
+# у нас нет, а машина одна. Сборка идёт при `docker compose build`, не при
+# каждом запуске.
+name: dala
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Машина на двух гигабайтах: буферы по умолчанию здесь слишком щедры.
+    command: >
+      postgres
+      -c shared_buffers=192MB
+      -c effective_cache_size=512MB
+      -c max_connections=50
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      UPLOADS_DIR: /data/uploads
+      SOLANA_ADMIN_KEYPAIR: /run/secrets/admin.json
+      SOLANA_OPERATOR_KEYPAIR: /run/secrets/operator.json
+      SOLANA_WHITELIST_KEYPAIR: /run/secrets/whitelist.json
+    volumes:
+      # Ключи ролей — только на чтение: контейнеру незачем их менять.
+      - /srv/dala/secrets:/run/secrets:ro
+      - /srv/dala/uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    environment:
+      # Фронт ходит в бэкенд по внутренней сети: наружу тот не выставлен.
+      API_URL: http://backend:3001
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ROOT_DOMAIN: ${ROOT_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  pgdata:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.git
+.env
+.env.*
+!.env.example
+# Ключи ролей монтируются томом, в образ они попадать не должны никогда.
+.secrets
+uploads
+*.tsbuildinfo
