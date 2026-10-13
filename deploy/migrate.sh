@@ -4,5 +4,4 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-docker compose run --rm --no-deps --entrypoint "" backend \
-  npx prisma migrate deploy
+docker compose --profile tools run --rm migrate
