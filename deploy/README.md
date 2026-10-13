@@ -63,6 +63,17 @@ Cron entries worth having:
 * * * * * /srv/dala/app/deploy/uptime.sh
 ```
 
+## Traps worth remembering
+
+Four things this broke on while being set up:
+
+1. **Postgres 18 wants the volume at `/var/lib/postgresql`**, not at `.../data`: the image keeps data in a subdirectory and refuses to start otherwise.
+2. **Role keys and the uploads directory must be owned by uid 10001** — the backend container's user. Mode 600 on the files is not enough; the directory has to be traversable by that user too.
+3. **Next resolves `rewrites` at build time**, not at startup, so `API_URL` in the container would still point at localhost. In production Caddy strips the `/api` prefix and proxies to the backend itself.
+4. **The Prisma CLI is a dev dependency** and is absent from the runtime image. Migrations run from the build stage through a separate compose service: `./migrate.sh`.
+
+Restoring a dump uses the container's own `pg_restore` — the host's client is a major version behind and rejects the file header.
+
 ## Notes
 
 - **The role keys live on the server.** For a devnet stand that is an acceptable

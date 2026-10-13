@@ -4,7 +4,9 @@ Private credit on Solana. Kazakhstani SMEs raise USDC from offshore investors wh
 
 Two loan shapes. A **loan** amortises on an annuity schedule, and the investor's share exists only inside the contract. A **bond** pays coupons with principal at maturity, the holder owns a registered Token-2022 note, and its corporate actions are serviced by a separate program: record date, holder list, entitlement calculation, holder vote.
 
-[Русская версия README](README.ru.md) · [KASE side track: technical overview](KASE.md)
+**Live stand: [app.dala-capital.live](https://app.dala-capital.live)** — devnet, real transactions on Solana.
+
+[Русская версия README](README.ru.md) · [KASE side track: technical overview](KASE.md) · [Deployment](deploy/README.md)
 
 ## Layout
 
