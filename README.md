@@ -1,12 +1,77 @@
 # Dala Capital
 
-Private credit on Solana. Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: each investor gets a personal deposit address, transfers tokens to it, and the platform credits the campaign on-chain. Money and the payment schedule live in the contract — the platform only executes operations and explains them to a human.
+Private credit on Solana, with the part that matters after issuance: **servicing a tokenized bond through its lifecycle** — record date, holder register, entitlement calculation, settlement, and the result written on-chain.
 
-Two loan shapes. A **loan** amortises on an annuity schedule, and the investor's share exists only inside the contract. A **bond** pays coupons with principal at maturity, the holder owns a registered Token-2022 note, and its corporate actions are serviced by a separate program: record date, holder list, entitlement calculation, holder vote.
+Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: each investor gets a personal deposit address, transfers tokens to it, and the platform credits the campaign on-chain. Money and the payment schedule live in the contract — the platform only executes operations and explains them to a human.
 
-**Live stand: [app.dala-capital.live](https://app.dala-capital.live)** — devnet, real transactions on Solana.
+**Live: [app.dala-capital.live](https://app.dala-capital.live)** · devnet, real transactions
+[Technical overview for the KASE track](KASE.md) · [Русская версия](README.ru.md) · [Deployment](deploy/README.md)
 
-[Русская версия README](README.ru.md) · [KASE side track: technical overview](KASE.md) · [Deployment](deploy/README.md)
+---
+
+## For judges: start here
+
+Everything below is open on the live stand. Sign in, click through, then verify the same facts in a block explorer.
+
+### Accounts on the stand
+
+| Role | Login | Password | What to look at |
+|---|---|---|---|
+| Registrar / admin | `admin@dala.capital` | `dala-admin-2026` | Issues, corporate-action journal, holder register by name, register extracts |
+| Bondholder | `holder1@dala.capital` | `dala-holder-1-2026` | Own notes, terms read from the mint, voting |
+| Bondholder | `holder2@dala.capital` | `dala-holder-2-2026` | Same, a different weight in the register |
+| Borrower (issuer) | `director@astana-trade.kz` | `astana-trade-2026` | Payment schedule, repayment address, early repayment |
+
+Devnet only: the USDC is a test token and nothing on this stand has monetary value.
+
+### The three required scenarios
+
+All three are implemented and were executed on devnet against issue **#19** (`KZ0000000021`), 1 251 notes of 1 000 USDC placed with three holders. The issue is now redeemed and its mint supply is zero — that is checkable without trusting us.
+
+| Scenario | What the platform does | Where to see it | On-chain proof |
+|---|---|---|---|
+| **1. Coupon payment** | Admin declares a coupon with a record date; after that date the registrar snapshots the register and anchors its hash; `dala_capital` distributes 75 060 USDC to holders in the borrower's own payment transaction; the settlement signature is written into the action record | Admin → Облигации → issue #19 → journal, action `coupon` | [settlement transaction](https://explorer.solana.com/tx/5Sah7sx9NzhbiRACwaUSWx3KqXQVedDbStHnrveKyMmKLVV4gJDadBxdygz7nJF28f7h4MnLBASxu7wfovA85EdP?cluster=devnet) · register hash `2ed76c64a216…` |
+| **2. Bond redemption** | At maturity the principal plus the final coupon — 1 060 USDC per note, 1 326 060 in total — is paid by the contract, then the registrar burns every note through the permanent delegate and the registry flips to `redeemed` | Admin → Облигации → issue #19, status «Погашена» | [mint, supply 0](https://explorer.solana.com/address/5BJzKnHrPTSTnjg7AyJhV5VsrjTNmXaJGZYhsUAdEgEa/token-extensions?cluster=devnet) |
+| **3. Bondholder vote** (additional action) | A vote on declaring default, weighted by notes held **on the record date**, with the recovery-cost budget as part of the question. Ballots are cast in the cabinet; the tally and the ballot-list hash go on-chain: 851 for, 400 against, 100% turnout | Admin → journal, action `vote`; holder → «Мои бумаги» | register hash `5c85b2ef0c3b…` in the action account |
+
+A fourth action type exists for completeness: a **record-only snapshot** with no payment, used to produce a register extract on a date. See issue #24 below.
+
+### Minimum prototype requirements
+
+| Required | Where it is |
+|---|---|
+| Test tokenized instrument | Token-2022 mint created by the program itself, terms and ISIN in its metadata: [issue #24 mint](https://explorer.solana.com/address/FZmEPxQN4KBm3HaMowHQmJWcxD2qAjayx877KsWwKpzx/token-extensions?cluster=devnet) |
+| Holder registry | On-chain balances read per holder; the published list is at `GET /api/bonds/:id/register/:index`, by name on the admin screen |
+| Record-date mechanism | Declared in advance; the contract refuses a snapshot before the date and settlement before a snapshot |
+| Entitlement calculation | `backend/src/bonds/entitlements.ts`, unit-tested against the brief's own example (10 × $1 000 × 10% ÷ 2 = $500) |
+| Coupon payment | Scenario 1 above |
+| Bond redemption | Scenario 2 above |
+| One additional corporate action | Scenario 3 above |
+| Verifiable on-chain record | Every action is an account with status, dates, amounts, holder count, register hash and settlement signature; every transition also emits an event |
+
+### Live issue to click through
+
+Issue **#24** `KZ0000000062` is open right now: 751 000 USDC placed, 751 notes across three holders, coupons twice a year, first on 10 April 2027. Its journal already holds a closed record-only action, so the register extract downloads in one click.
+
+[Mint in the explorer](https://explorer.solana.com/address/FZmEPxQN4KBm3HaMowHQmJWcxD2qAjayx877KsWwKpzx/token-extensions?cluster=devnet) · [`dala_actions` program](https://explorer.solana.com/address/7JZq4xxCLMaRefYwqgqh78skXkWrf4rtU6ArRjiokrjV?cluster=devnet) · [`dala_capital` program](https://explorer.solana.com/address/JCLPbcLwdYJs1UJgL6LK1nhYRUcGk5ziFPx55nVL9akB?cluster=devnet)
+
+### Judging criteria, and where each one is answered
+
+| Criterion | What answers it |
+|---|---|
+| Technical execution, 30% | Two Anchor programs on devnet serve the whole life of a note, from issuance to burn. The platform custodies nothing: money is moved by the contract, the platform only signs. All of it runs publicly at [app.dala-capital.live](https://app.dala-capital.live), not in a screen recording |
+| Corporate action logic, 25% | Stage order is enforced by the contract, not by the interface: a snapshot before the record date, settlement without a snapshot, and a burn while the loan is unpaid are all refused. Vote weight comes from the snapshot taken on the record date, not from the current balance — otherwise one could vote, exit, and keep the vote. Entitlements follow the formula from the brief itself |
+| Product & UX, 20% | Three cabinets, and each role is shown the next step rather than the whole console. The register reads as names of holders with links into their KYC files. Registrar documents download in one click: the register extract, the MT564 or MT566 notice, the action journal as a table |
+| Real-world applicability, 15% | The ISIN is validated against ISO 6166 and written into the mint's metadata. Notices follow the ISO 15022 layout with `CAEV` and `CAMV` codes — the same fields depositories have used for decades. The note is registered and non-transferable, as a corporate bond is in Kazakhstan, and the keys are named after market functions: registrar, issuing agent, paying agent, treasury |
+| Innovation, 10% | A holder's entitlement is settled inside the very transaction in which the borrower pays: T+0 here is the shape of the settlement, not a promise in a rulebook. The register is kept by name, yet what goes on-chain is a fingerprint of rights, not of identity. Re-registration on an address change is one indivisible transaction — a half-applied state cannot exist |
+
+### Implemented vs simulated
+
+Implemented on Solana: the Token-2022 instrument with frozen holder accounts and a permanent delegate, issuance and burning, corporate-action accounts with enforced stage order, record-date checks, entitlement arithmetic, coupon and principal settlement, events on every transition.
+
+Simulated or deliberately off-chain: the register snapshot itself (computed off-chain, published, hash anchored), ballots (cast in the cabinet, tally and hash anchored), and fiat rails (the platform settles in USDC end to end). [KASE.md §6](KASE.md) spells out each one and why.
+
+---
 
 ## Layout
 
@@ -15,6 +80,7 @@ Two loan shapes. A **loan** amortises on an annuity schedule, and the investor's
 | `smartcontracts/` | Two Anchor programs. `dala_capital` — campaigns, deposits, schedules, repayments, prepayment, default and recovery. `dala_actions` — bond issuance and the corporate-actions journal |
 | `backend/` | NestJS and PostgreSQL: cabinets for three roles, a client for both programs, mirrors of the contract's arithmetic, and pre-flight checks before every transaction |
 | `frontend/` | Next.js: admin, investor and borrower cabinets |
+| `deploy/` | The production stack: compose, Caddy, migrations, backups |
 
 ## How it works
 
@@ -26,9 +92,9 @@ Two loan shapes. A **loan** amortises on an annuity schedule, and the investor's
 
 **The holder register is stored off-chain; its hash goes on-chain.** Keeping the full list in an account would be expensive and pointless: the published list can be recomputed by anyone and verified against the anchored digest.
 
-**A move cannot half-apply.** When a holder changes their withdrawal address, the note is burned on the old account and minted on the new one in **one transaction** — a half-applied move would leave a holder without evidence of a claim they still hold. The registrar can also reconcile: compare paid-in lots against on-chain balances and re-issue what a failed transaction left missing.
-
 **The register is kept by name.** Notes are minted only to investors' withdrawal addresses and cannot be transferred, so the platform always knows who is behind an address. Identity is written into the snapshot when it is taken, not looked up later, so an extract for a past record date still shows the name of that date. The hash covers accounts, units and amounts — not names: a name is an attribute of the KYC file, and substituting it changes nobody's entitlement. Names are visible to the administrator only; investors see each other as anonymous shares.
+
+**A move cannot half-apply.** When a holder changes their withdrawal address, the note is burned on the old account and minted on the new one in **one transaction** — a half-applied move would leave a holder without evidence of a claim they still hold. The registrar can also reconcile: compare paid-in lots against on-chain balances and re-issue what a failed transaction left missing.
 
 **Documents a registrar hands out.** A register extract in CSV — holder, type, country, securities account, units, share of the issue, amount due — with a second, journalled export that adds identifying documents. Corporate-action notices in the ISO 15022 layout: MT564 while declared, MT566 once settled, with `CAEV`/`CAMV` codes and the ISIN. And the whole action journal as a table.
 
@@ -65,4 +131,4 @@ cd backend && pnpm test && pnpm test:e2e
 cd smartcontracts && anchor test
 ```
 
-Both programs are deployed on devnet and the full lifecycle has been walked through live on realistic amounts: an issue of 1 251 000 USDC with 1 251 notes across three holders, a 75 060 USDC coupon, a holder vote, redemption with burn down to zero supply, and the borrower's overpayment returned. Addresses, numbers and the walkthrough are in [KASE.md](KASE.md).
+185 unit and 192 end-to-end tests in the backend, 25 unit and 102 integration tests in the contracts, 36 of them for bonds. Both programs are deployed on devnet and the full lifecycle has been walked through live on realistic amounts — the numbers and the walkthrough are in [KASE.md](KASE.md).
