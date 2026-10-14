@@ -11,6 +11,7 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 | Document | What is inside | For whom |
 |---|---|---|
 | [KASE.md](KASE.md) | The side track answered in full: the instrument, the record date, entitlement formulas, the three scenarios with devnet numbers, implemented vs simulated | Judges, anyone evaluating the corporate-action design |
+| [docs/architecture.md](docs/architecture.md) | Why the system is shaped this way: settlement without iterating over holders, investors without wallets, what each service key can and cannot do | Anyone asking how it is built, before how it is used |
 | [smartcontracts/CONTRACT.md](smartcontracts/CONTRACT.md) | The contract reference: accounts, the accounting model, the life of a campaign, an entry per instruction with signer, checks and errors. English preface, Russian body | Anyone reading the programs |
 | [backend/README.md](backend/README.md) | What the service is responsible for, the module map, how the contract's arithmetic is mirrored, how to run it | Backend readers |
 | [frontend/README.md](frontend/README.md) | The three cabinets route by route, how the browser reaches the API | Frontend readers |
@@ -92,8 +93,13 @@ Simulated or deliberately off-chain: the register snapshot itself (computed off-
 | `backend/` | NestJS and PostgreSQL: cabinets for three roles, a client for both programs, mirrors of the contract's arithmetic, and pre-flight checks before every transaction |
 | `frontend/` | Next.js: admin, investor and borrower cabinets |
 | `deploy/` | The production stack: compose, Caddy, migrations, backups |
+| `docs/` | The architecture document and the diagram |
 
 ## How it works
+
+![Architecture](docs/architecture.svg)
+
+The reasoning behind each of these is in [docs/architecture.md](docs/architecture.md).
 
 **Only the contract moves money.** The platform signs transactions with service keys but custodies nothing: deposits sit in the campaign vault, and payouts are distributed by accumulators in the same transaction in which the borrower pays. Settlement is T+0 because settlement *is* the trade.
 
@@ -110,6 +116,8 @@ Simulated or deliberately off-chain: the register snapshot itself (computed off-
 **Documents a registrar hands out.** A register extract in CSV — holder, type, country, securities account, units, share of the issue, amount due — with a second, journalled export that adds identifying documents. Corporate-action notices in the ISO 15022 layout: MT564 while declared, MT566 once settled, with `CAEV`/`CAMV` codes and the ISIN. And the whole action journal as a table.
 
 **The bond is registered, not bearer.** Holder token accounts are created frozen, so the note evidences a claim and does not circulate. The registrar holds permanent-delegate rights and burns units on redemption — supply goes to zero, visible in any explorer.
+
+**The bond is the second instrument, not the only one.** The platform's bread and butter is the **annuity loan** an SME actually takes: equal payments, principal amortised from the first one, the schedule built by the contract when funding closes from the amount actually raised. Partial prepayment keeps the number of payments and lowers each; a missed date accrues penalty interest per second, and that penalty goes to the holders. Walked through on devnet, campaign #23: 200,000 USDC from two investors at 24% a year, four equal payments of 52,524.75, closed in full — investors ended with 105.06% of principal and the borrower's 49.99 overpayment went back to the borrower. Both instruments run on the same four accumulators and the same payout path, which is why the corporate-action work needed no change to how money moves.
 
 ## A note on language
 

@@ -22,6 +22,34 @@ Three things were missing, and they are what this track added:
 
 **The existing lending program was not modified by a single line.** Nine live devnet campaigns kept running throughout.
 
+### The other instrument: the amortised loan
+
+The bond is this track's subject, but it is the second shape of the same
+machine, and the first one is what the platform is for day to day. A Kazakhstani
+SME borrowing working capital does not issue a bond — it takes an **annuity
+loan**: equal payments, each one part interest and part principal, with the
+principal amortised from the first payment instead of waiting at the end.
+
+The schedule is built by the contract when funding closes, from the amount
+actually raised — not from the amount requested, because a campaign may collect
+less. Partial prepayment keeps the number of payments and lowers each of them,
+which is what a borrower with a seasonal cash flow asks for; the preview on the
+screen is computed by the backend's mirror of the contract's arithmetic and has
+matched the chain to the cent in every run. Miss a date and penalty interest
+starts accruing per second, alongside interest that keeps running on the overdue
+principal — both go to the holders, not to the platform.
+
+Walked through on devnet, campaign #23: **200,000 USDC** from two investors at
+**24% a year**, four equal payments of **52,524.75 USDC**. Closed in full; the
+investors ended with **105.06%** of what they put in, and the 49.99 USDC the
+borrower overpaid on the last transfer was returned to the borrower rather than
+kept. Partial prepayment was verified separately on campaign #4.
+
+The two instruments share one engine: the same four accumulators, the same
+allocation order, the same payout path. That is why corporate actions could be
+built on top without touching how money moves — and why the track's work is an
+extension of a lending business, not a demo built around a single bond.
+
 ---
 
 ## 2. Architecture
