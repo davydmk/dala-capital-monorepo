@@ -1,8 +1,35 @@
-# Dala Capital V2 — документация смарт-контракта
+# The contract, documented
+
+> **In English, for a first-time reader.** This is the reference for the two
+> Anchor programs: what they do, how the accounts and the accounting are laid
+> out, and what every instruction expects. The body of the document is in
+> Russian — see the note on language below — but it is organised so that you
+> can navigate it without reading Russian:
+>
+> | Section | What you will find |
+> |---|---|
+> | 1–2 | What the program does, and where things live in the repository |
+> | 3 | The four keys and what each one may sign: registrar, issuing agent, paying agent, treasury |
+> | 4 | Accounts and addresses: platform, deal, position, user account, and the PDAs behind deposit and repayment addresses |
+> | 5 | The life of a campaign, from creation through closing to repayment or default |
+> | 6 | The accounting model: how a payment is split between principal, interest, penalty and prepayment fee, and why distribution uses accumulators instead of a loop over investors |
+> | 7 | Instruction reference — signer, accounts, checks, errors — one subsection per instruction |
+> | 8–9 | Events and error codes |
+> | 10–12 | Scenarios for the backend, deliberate limitations, and the test suite |
+>
+> Two design decisions explain most of the rest. **Users have no wallets in the
+> program:** an investor sends stablecoin to a personal deposit address, which
+> is a PDA, and the platform's operator key signs on their behalf. **Payouts
+> are not iterated:** when a borrower repays, the amount is added to
+> accumulators on the deal, and each investor's share is derived from their
+> position when they claim — so one transaction settles any number of holders.
+>
+> The corporate-action side, written for the KASE track, is documented in
+> English in [KASE.md](../KASE.md).
 
 Документ для разработчиков и ИИ-агентов, которые впервые видят этот репозиторий. Описывает, что делает программа, как устроены аккаунты и учёт, и справочник по каждой инструкции.
 
-Функциональные требования: [`../тз контракт V2.md`](../тз%20контракт%20V2.md). При расхождении документа и кода верен код — обновите документ.
+Функциональные требования живут отдельным внутренним документом и в репозиторий не входят. При расхождении этого документа и кода **верен код** — исправьте документ.
 
 ---
 

@@ -5,7 +5,18 @@ Private credit on Solana, with the part that matters after issuance: **servicing
 Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: each investor gets a personal deposit address, transfers tokens to it, and the platform credits the campaign on-chain. Money and the payment schedule live in the contract — the platform only executes operations and explains them to a human.
 
 **Live: [app.dala-capital.live](https://app.dala-capital.live)** · devnet, real transactions
-[Technical overview for the KASE track](KASE.md) · [Русская версия](README.ru.md) · [Deployment](deploy/README.md)
+
+### Where everything is
+
+| Document | What is inside | For whom |
+|---|---|---|
+| [KASE.md](KASE.md) | The side track answered in full: the instrument, the record date, entitlement formulas, the three scenarios with devnet numbers, implemented vs simulated | Judges, anyone evaluating the corporate-action design |
+| [smartcontracts/CONTRACT.md](smartcontracts/CONTRACT.md) | The contract reference: accounts, the accounting model, the life of a campaign, an entry per instruction with signer, checks and errors. English preface, Russian body | Anyone reading the programs |
+| [backend/README.md](backend/README.md) | What the service is responsible for, the module map, how the contract's arithmetic is mirrored, how to run it | Backend readers |
+| [frontend/README.md](frontend/README.md) | The three cabinets route by route, how the browser reaches the API | Frontend readers |
+| [deploy/README.md](deploy/README.md) | The production stack, and four traps this deployment broke on | Whoever runs it |
+| [README.ru.md](README.ru.md) | This document in Russian | — |
+| [LICENSE](LICENSE) | Apache 2.0 | — |
 
 ---
 
