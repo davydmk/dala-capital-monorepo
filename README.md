@@ -33,7 +33,7 @@ Everything below is open on the live stand. Sign in, click through, then verify 
 | Bondholder | `holder2@dala.capital` | `dala-holder-2-2026` | Same, a different weight in the register |
 | Borrower (issuer) | `director@astana-trade.kz` | `astana-trade-2026` | Payment schedule, repayment address, early repayment |
 
-Devnet only: the USDC is a test token and nothing on this stand has monetary value.
+Devnet only: the USDC is a test token and nothing on this stand has monetary value. It comes from the [SPL token faucet](https://spl-token-faucet.com/?token-name=USDC) — the same mint the platform settles in, `Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr` — so you can top yourself up and move money on the stand yourself. Investors need no wallet and no SOL: they transfer the token to a personal deposit address and the platform signs everything else.
 
 ### The three required scenarios
 
