@@ -1,5 +1,7 @@
 # Dala Capital
 
+**English** · [Русский](README.ru.md)
+
 Private credit on Solana, with the part that matters after issuance: **servicing a tokenized bond through its lifecycle** — record date, holder register, entitlement calculation, settlement, and the result written on-chain.
 
 Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: each investor gets a personal deposit address, transfers tokens to it, and the platform credits the campaign on-chain. Money and the payment schedule live in the contract — the platform only executes operations and explains them to a human.
@@ -8,16 +10,16 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 
 ### Where everything is
 
-| Document | What is inside | For whom |
-|---|---|---|
-| [KASE.md](KASE.md) | The side track answered in full: the instrument, the record date, entitlement formulas, the three scenarios with devnet numbers, implemented vs simulated | Judges, anyone evaluating the corporate-action design |
-| [docs/architecture.md](docs/architecture.md) | Why the system is shaped this way: settlement without iterating over holders, investors without wallets, what each service key can and cannot do | Anyone asking how it is built, before how it is used |
-| [smartcontracts/CONTRACT.md](smartcontracts/CONTRACT.md) | The contract reference: accounts, the accounting model, the life of a campaign, an entry per instruction with signer, checks and errors. English preface, Russian body | Anyone reading the programs |
-| [backend/README.md](backend/README.md) | What the service is responsible for, the module map, how the contract's arithmetic is mirrored, how to run it | Backend readers |
-| [frontend/README.md](frontend/README.md) | The three cabinets route by route, how the browser reaches the API | Frontend readers |
-| [deploy/README.md](deploy/README.md) | The production stack, and four traps this deployment broke on | Whoever runs it |
-| [README.ru.md](README.ru.md) | This document in Russian | — |
-| [LICENSE](LICENSE) | Apache 2.0 | — |
+| Document | What is inside | Language | For whom |
+|---|---|---|---|
+| KASE | The side track answered in full: the instrument, the record date, entitlement formulas, the three scenarios with devnet numbers, implemented vs simulated | [EN](KASE.md) · [RU](KASE.ru.md) | Judges, anyone evaluating the corporate-action design |
+| Architecture | Why the system is shaped this way: settlement without iterating over holders, investors without wallets, what each service key can and cannot do | [EN](docs/architecture.md) · [RU](docs/architecture.ru.md) | Anyone asking how it is built, before how it is used |
+| Contract reference | Accounts, the accounting model, the life of a campaign, an entry per instruction with signer, checks and errors | [EN](smartcontracts/CONTRACT.md) · [RU](smartcontracts/CONTRACT.ru.md) | Anyone reading the programs |
+| Backend README | What the service is responsible for, the module map, how the contract's arithmetic is mirrored, how to run it | [EN](backend/README.md) — English only | Backend readers |
+| Frontend README | The three cabinets route by route, how the browser reaches the API | [EN](frontend/README.md) — English only | Frontend readers |
+| Deployment README | The production stack, and four traps this deployment broke on | [EN](deploy/README.md) — English only | Whoever runs it |
+| This README | — | EN · [RU](README.ru.md) | — |
+| [LICENSE](LICENSE) | Apache 2.0 | original | — |
 
 ---
 
@@ -121,7 +123,7 @@ The reasoning behind each of these is in [docs/architecture.md](docs/architectur
 
 ## A note on language
 
-The interface and the code comments are in Russian, and that is deliberate. The borrowers are Kazakhstani companies and the investors are Russian-speaking; localisation here is market fit, not technical debt. The comments carry the reasoning — why a number is computed one way and not another, what the contract deliberately does not do — and translating them would make them worse. This README and [KASE.md](KASE.md) carry everything needed to understand the system in English.
+The interface and the code comments are in Russian, and that is deliberate. The borrowers are Kazakhstani companies and the investors are Russian-speaking; localisation here is market fit, not technical debt. The comments carry the reasoning — why a number is computed one way and not another, what the contract deliberately does not do — and translating them would make them worse. Everything needed to understand the system is in English: this README, [KASE.md](KASE.md), [docs/architecture.md](docs/architecture.md) and [the contract reference](smartcontracts/CONTRACT.md).
 
 ## Running it
 

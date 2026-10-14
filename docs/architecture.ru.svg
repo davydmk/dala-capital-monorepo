@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="1000" height="600" role="img" aria-label="Архитектура Dala Capital: слева три роли и бэкенд, справа две программы Anchor, снизу путь денег от биржи инвестора через адреса программы к заёмщику и обратно к держателям.">
+  <style>
+    text { font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .ttl { font-size: 15px; font-weight: 650; fill: #24292f; }
+    .sub { font-size: 11.5px; fill: #6e7781; }
+    .sec { font-size: 11px; font-weight: 650; letter-spacing: .09em; fill: #8b949e; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; font-weight: 600; fill: #24292f; }
+    .box { fill: none; stroke: #d0d7de; }
+    .prog { stroke: #4493f8; }
+    .rule { stroke: #d0d7de; }
+    @media (prefers-color-scheme: dark) {
+      .ttl, .mono { fill: #e6edf3; }
+      .sub { fill: #9198a1; }
+      .box, .rule { stroke: #3d444d; }
+      .prog { stroke: #4493f8; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e"/>
+    </marker>
+  </defs>
+
+  <!-- ─── роли → бэкенд → программы ─── -->
+  <text class="sec" fill="#8b949e" x="24" y="24">РОЛИ · ПЛАТФОРМА · ПРОГРАММЫ</text>
+
+  <rect class="box" x="24" y="44" width="176" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="40" y="70">Инвестор</text>
+  <text class="sub" fill="#7d8590" x="40" y="88">без кошелька, без подписи</text>
+
+  <rect class="box" x="24" y="116" width="176" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="40" y="142">Заёмщик</text>
+  <text class="sub" fill="#7d8590" x="40" y="160">платит по графику</text>
+
+  <rect class="box" x="24" y="188" width="176" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="40" y="214">Администратор</text>
+  <text class="sub" fill="#7d8590" x="40" y="232">эмитент · регистратор · агент</text>
+
+  <line x1="200" y1="74" x2="246" y2="74" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+  <line x1="200" y1="146" x2="246" y2="146" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+  <line x1="200" y1="218" x2="246" y2="218" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box" x="252" y="44" width="196" height="204" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="270" y="74">Бэкенд</text>
+  <text class="sub" fill="#7d8590" x="270" y="104">повторяет арифметику</text>
+  <text class="sub" fill="#7d8590" x="270" y="120">контракта до копейки</text>
+  <text class="sub" fill="#7d8590" x="270" y="146">анкеты, документы, выписки,</text>
+  <text class="sub" fill="#7d8590" x="270" y="162">MT564 / MT566</text>
+  <text class="sub" fill="#7d8590" x="270" y="188">подписывает ключами ролей:</text>
+  <text class="sub" fill="#7d8590" x="270" y="204">регистратор · эмитент · оператор</text>
+  <text class="sub" fill="#7d8590" x="270" y="230">своих требований не имеет</text>
+
+  <line x1="448" y1="92" x2="518" y2="92" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+  <line x1="448" y1="200" x2="518" y2="200" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box prog" x="524" y="44" width="452" height="96" rx="8" fill="none" stroke="#4493f8" stroke-width="1.25"/>
+  <text class="mono" fill="#7d8590" x="544" y="74">dala_capital</text>
+  <text class="sub" fill="#7d8590" x="544" y="96">кампании · взносы · графики · погашение · досрочное</text>
+  <text class="sub" fill="#7d8590" x="544" y="114">дефолт и взыскание &#8212; всё движение денег</text>
+
+  <rect class="box prog" x="524" y="152" width="452" height="96" rx="8" fill="none" stroke="#4493f8" stroke-width="1.25"/>
+  <text class="mono" fill="#7d8590" x="544" y="182">dala_actions</text>
+  <text class="sub" fill="#7d8590" x="544" y="204">бумаги Token-2022 с ISIN · даты фиксации · хеши реестра</text>
+  <text class="sub" fill="#7d8590" x="544" y="222">права · голосования · погашение &#8212; денег не трогает</text>
+
+  <line x1="288" y1="288" x2="976" y2="288" class="rule" stroke="#d0d7de" stroke-width="1" stroke-dasharray="3 4"/>
+
+  <!-- ─── путь денег ─── -->
+  <text class="sec" fill="#8b949e" x="24" y="324">ПУТЬ ДЕНЕГ</text>
+
+  <rect class="box" x="24" y="340" width="200" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="40" y="366">Биржа</text>
+  <text class="sub" fill="#7d8590" x="40" y="384">инвестор отправляет USDC</text>
+
+  <line x1="224" y1="370" x2="268" y2="370" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box" x="274" y="340" width="200" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="290" y="366">Адрес пополнения</text>
+  <text class="sub" fill="#7d8590" x="290" y="384">PDA: кампания × пользователь</text>
+
+  <line x1="474" y1="370" x2="518" y2="370" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box" x="524" y="340" width="200" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="540" y="366">Волт кампании</text>
+  <text class="sub" fill="#7d8590" x="540" y="384">позиция на каждого</text>
+
+  <line x1="724" y1="370" x2="768" y2="370" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box" x="774" y="340" width="202" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="790" y="366">Заёмщик</text>
+  <text class="sub" fill="#7d8590" x="790" y="384">тело за вычетом комиссии</text>
+
+  <rect class="box" x="24" y="424" width="200" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="40" y="450">Погашение</text>
+  <text class="sub" fill="#7d8590" x="40" y="468">заёмщик платит на PDA</text>
+
+  <line x1="224" y1="454" x2="268" y2="454" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box" x="274" y="424" width="200" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="290" y="450">Четыре аккумулятора</text>
+  <text class="sub" fill="#7d8590" x="290" y="468">тело · проценты · пеня · комиссия</text>
+
+  <line x1="474" y1="454" x2="518" y2="454" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box" x="524" y="424" width="200" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="540" y="450">Право держателя</text>
+  <text class="sub" fill="#7d8590" x="540" y="468">выводится, не перебирается</text>
+
+  <line x1="724" y1="454" x2="768" y2="454" class="rule" stroke="#8b949e" stroke-width="1.25" marker-end="url(#a)"/>
+
+  <rect class="box" x="774" y="424" width="202" height="60" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25"/>
+  <text class="ttl" fill="#7d8590" x="790" y="450">Адрес вывода</text>
+  <text class="sub" fill="#7d8590" x="790" y="468">единственный выход</text>
+
+  <text class="sub" fill="#7d8590" x="24" y="508">Весь нижний ряд проходит одной транзакцией: платёж заёмщика разносится и зачисляется всем держателям сразу, сколько бы их ни было.</text>
+
+  <!-- ─── вне сети ─── -->
+  <rect class="box" x="24" y="528" width="952" height="56" rx="8" fill="none" stroke="#d0d7de" stroke-width="1.25" stroke-dasharray="5 4"/>
+  <text class="ttl" fill="#7d8590" x="44" y="552">Вне сети</text>
+  <text class="sub" fill="#7d8590" x="44" y="570">Выписки из реестра, бюллетени и документы хранит платформа; в сеть уходят их хеш SHA-256, дата фиксации и ссылка на расчёт.</text>
+</svg>

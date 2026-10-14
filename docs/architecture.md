@@ -1,5 +1,7 @@
 # Architecture
 
+**English** · [Русский](architecture.ru.md)
+
 Why the system is shaped the way it is. The instruction-level reference is
 [smartcontracts/CONTRACT.md](../smartcontracts/CONTRACT.md); the corporate-action
 design is [KASE.md](../KASE.md). This document is about the decisions those two
