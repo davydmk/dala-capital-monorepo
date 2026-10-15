@@ -27,6 +27,17 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 
 Everything below is open on the live stand. Sign in, click through, then verify the same facts in a block explorer.
 
+### Watch it work
+
+Four recordings, one per role, following a single issue from creation to the borrower's first payment — twelve minutes in all. The interface is in Russian; each video's description says in English what is happening on screen.
+
+| # | Video | Who is at the keyboard | What it shows | Length |
+|---|---|---|---|---|
+| 1 | [Creating a campaign and issuing a bond](https://youtu.be/4ot6p0W-mNo) | Administrator | A borrower's file, the campaign's terms, the schedule, and the Token-2022 bond issued with its ISIN and terms written into the mint | 4:29 |
+| 2 | [Investing without a wallet](https://youtu.be/TMyXwwfs8NE) | Investor | A personal deposit address, a USDC transfer to it, the contribution credited on-chain, and the bond appearing in the holder's cabinet | 3:27 |
+| 3 | [Closing funding and paying the borrower](https://youtu.be/FllAjHjsR2o) | Administrator | Funding closed after the deadline: the platform fee to the treasury, the proceeds to the borrower's address, and the schedule going live | 1:23 |
+| 4 | [The borrower's first payment](https://youtu.be/AhVPezaLokg) | Borrower | The payment allocated by item and distributed to holders in the same transaction, and what happens to the amount paid above the instalment | 2:40 |
+
 ### Accounts on the stand
 
 | Role | Login | Password | What to look at |
