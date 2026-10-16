@@ -29,7 +29,7 @@ Everything below is open on the live stand. Sign in, click through, then verify 
 
 ### Watch it work
 
-Four recordings, one per role, following a single issue from creation to the borrower's first payment — twelve minutes in all. The interface is in Russian; each video's description says in English what is happening on screen.
+Six recordings following one issue from its creation to a partial repayment, one role at a time — sixteen minutes in all. The interface is in Russian; each video's description says in English what is happening on screen.
 
 | # | Video | Who is at the keyboard | What it shows | Length |
 |---|---|---|---|---|
@@ -37,6 +37,8 @@ Four recordings, one per role, following a single issue from creation to the bor
 | 2 | [Investing without a wallet](https://youtu.be/TMyXwwfs8NE) | Investor | A personal deposit address, a USDC transfer to it, the contribution credited on-chain, and the bond appearing in the holder's cabinet | 3:27 |
 | 3 | [Closing funding and paying the borrower](https://youtu.be/FllAjHjsR2o) | Administrator | Funding closed after the deadline: the platform fee to the treasury, the proceeds to the borrower's address, and the schedule going live | 1:23 |
 | 4 | [The borrower's first payment](https://youtu.be/AhVPezaLokg) | Borrower | The payment allocated by item and distributed to holders in the same transaction, and what happens to the amount paid above the instalment | 2:40 |
+| 5 | [The investor withdraws a payout](https://youtu.be/mpbkOIDWidc) | Investor | A holder's share derived from their own position in the contract, paid out only to the address they registered | 1:49 |
+| 6 | [The borrower pays part of the debt](https://youtu.be/AigFi6wyrjY) | Borrower | 50,000 USDC against a larger debt: interest first, then interest on arrears, then principal — the penalty is last in the queue and gets nothing | 2:42 |
 
 ### Accounts on the stand
 
