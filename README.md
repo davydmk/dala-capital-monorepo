@@ -29,7 +29,7 @@ Everything below is open on the live stand. Sign in, click through, then verify 
 
 ### Watch it work
 
-Six recordings following one issue from its creation to a partial repayment, one role at a time — sixteen minutes in all. The interface is in Russian; each video's description says in English what is happening on screen.
+Seven recordings following one issue from its creation to a coupon recorded as a corporate action, one role at a time — nineteen minutes in all. The interface is in Russian; each video's description says in English what is happening on screen.
 
 | # | Video | Who is at the keyboard | What it shows | Length |
 |---|---|---|---|---|
@@ -39,6 +39,7 @@ Six recordings following one issue from its creation to a partial repayment, one
 | 4 | [The borrower's first payment](https://youtu.be/AhVPezaLokg) | Borrower | The payment allocated by item and distributed to holders in the same transaction, and what happens to the amount paid above the instalment | 2:40 |
 | 5 | [The investor withdraws a payout](https://youtu.be/mpbkOIDWidc) | Investor | A holder's share derived from their own position in the contract, paid out only to the address they registered | 1:49 |
 | 6 | [The borrower pays part of the debt](https://youtu.be/AigFi6wyrjY) | Borrower | 50,000 USDC against a larger debt: interest first, then interest on arrears, then principal — the penalty is last in the queue and gets nothing | 2:42 |
+| 7 | [A coupon as a corporate action](https://youtu.be/m-aWozmKf0U) | Administrator | The record date declared in advance, the holder register snapshotted against it with its hash anchored on-chain, and the action linked to the payment that settled it — MT564 before, MT566 after | 2:23 |
 
 ### Accounts on the stand
 
