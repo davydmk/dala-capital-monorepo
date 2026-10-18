@@ -163,9 +163,23 @@ function interval(state: AccruedDebt, deal: DebtInput, seconds: number): void {
 /**
  * Сколько причитается прямо сейчас — то же, что считает `due_obligations`
  * после начисления. Ненаступившие платежи сюда не входят.
+ *
+ * В дефолте график отменён: ненаступившие проценты списаны, остаток тела
+ * перенесён в `default_principal`, а поля просрочки обнулены. Складывать их
+ * значило бы показать заёмщику одну пеню, поэтому здесь берутся дефолтные
+ * статьи. Форма ответа та же: вызывающему знать про развилку незачем.
  */
 export function amountDue(deal: DebtInput, now: number): AmountDue {
   const state = accrue(deal, now);
+  if (deal.state === 'default') {
+    return {
+      scheduledInterest: state.defaultInterest,
+      extraInterest: 0n,
+      principal: state.defaultPrincipal,
+      penalty: state.penalty,
+      total: state.defaultInterest + state.defaultPrincipal + state.penalty,
+    };
+  }
   return {
     scheduledInterest: state.overdueScheduledInterest,
     extraInterest: state.extraInterest,
@@ -179,14 +193,18 @@ export function amountDue(deal: DebtInput, now: number): AmountDue {
   };
 }
 
-/** Долг в дефолте: проценты, тело и пеня. Расходы на взыскание сюда не входят. */
+/**
+ * Долг в дефолте под именами взыскания: те же статьи, что отдаёт `amountDue`,
+ * только названы так, как их показывает блок взыскания. Расходы на взыскание
+ * сюда не входят — они идут в казну, а не держателям.
+ */
 export function defaultDebt(deal: DebtInput, now: number) {
-  const state = accrue(deal, now);
+  const due = amountDue(deal, now);
   return {
-    interest: state.defaultInterest,
-    principal: state.defaultPrincipal,
-    penalty: state.penalty,
-    total: state.defaultInterest + state.defaultPrincipal + state.penalty,
+    interest: due.scheduledInterest,
+    principal: due.principal,
+    penalty: due.penalty,
+    total: due.total,
   };
 }
 
@@ -218,11 +236,9 @@ export function outstandingPrincipal(deal: DebtInput): bigint {
  */
 export function totalOutstanding(deal: DebtInput, now: number): bigint {
   const state = accrue(deal, now);
-  let total =
-    state.overdueScheduledInterest +
-    state.extraInterest +
-    state.overduePrincipal +
-    state.penalty;
+  let total = amountDue(deal, now).total;
+  // В дефолте ненаступивших платежей больше нет: весь остаток уже в долге.
+  if (deal.state === 'default') return total;
   for (const period of deal.periods.slice(state.nextPeriod)) {
     total += period.interestAmount - period.interestPaid;
     total += period.principalAmount - period.principalPaid;

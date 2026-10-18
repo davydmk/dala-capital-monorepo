@@ -107,6 +107,8 @@ export function PayView() {
                 decimals={decimals}
                 accruedTo={data.accruedTo}
                 now={data.now}
+                defaulted={data.recovery !== null}
+                recovery={data.recovery?.outstanding ?? '0'}
               />
             )}
             {/* Срок и сумма называются в обоих случаях: в разбивке стоит
@@ -153,7 +155,13 @@ export function PayView() {
               />
               <StatTile
                 label="К оплате сейчас"
-                value={formatMoney(data.due.total, decimals)}
+                value={formatMoney(
+                  (
+                    BigInt(data.due.total) +
+                    BigInt(data.recovery?.outstanding ?? '0')
+                  ).toString(),
+                  decimals,
+                )}
               />
             </div>
 

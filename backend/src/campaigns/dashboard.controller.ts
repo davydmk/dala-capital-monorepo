@@ -4,7 +4,6 @@ import { Roles } from '../auth/auth.guard.js';
 import {
   amountDue,
   daysPastDue,
-  defaultDebt,
   recoveryOutstanding,
 } from '../borrowers/debt.js';
 import { campaignStatus, overdueNow } from '../investors/campaign-status.js';
@@ -86,12 +85,9 @@ export class DashboardController {
           mintDecimals: campaign.mintDecimals,
           daysPastDue: daysPastDue(deal, now),
           defaultThresholdDays: campaign.defaultThresholdDays,
-          // В дефолте долг лежит в других полях, и расходы на взыскание
-          // заёмщик тоже обязан возместить.
-          due:
-            deal.state === 'default'
-              ? defaultDebt(deal, now).total + recoveryOutstanding(deal)
-              : amountDue(deal, now).total,
+          // Расходы на взыскание заёмщик обязан возместить сверх долга: они
+          // закрываются первыми и уходят в казну, поэтому в `amountDue` их нет.
+          due: amountDue(deal, now).total + recoveryOutstanding(deal),
         });
       }
     }

@@ -86,18 +86,34 @@ export function DueBreakdown({
   decimals,
   accruedTo,
   now,
+  defaulted = false,
+  recovery = '0',
 }: {
   due: AmountDue;
   decimals: number;
   accruedTo: number;
   now: number;
+  /** Взыскание: график отменён, статьи называются иначе. */
+  defaulted?: boolean;
+  /** Невозмещённые расходы на взыскание — их закрывают первыми. */
+  recovery?: string;
 }) {
-  const rows: [string, string][] = [
-    ['Проценты по графику', due.scheduledInterest],
-    ['Проценты на просрочку', due.extraInterest],
-    ['Тело займа', due.principal],
-    ['Пеня', due.penalty],
-  ];
+  // В дефолте «проценты по графику» и «тело наступивших платежей» —
+  // неверные названия: платежей больше нет, есть весь остаток долга.
+  const rows: [string, string][] = defaulted
+    ? [
+        ['Проценты', due.scheduledInterest],
+        ['Остаток тела', due.principal],
+        ['Пеня', due.penalty],
+        ['Расходы на взыскание', recovery],
+      ]
+    : [
+        ['Проценты по графику', due.scheduledInterest],
+        ['Проценты на просрочку', due.extraInterest],
+        ['Тело займа', due.principal],
+        ['Пеня', due.penalty],
+      ];
+  const total = (BigInt(due.total) + BigInt(recovery)).toString();
   return (
     <div>
       <dl className="space-y-1 text-sm">
@@ -111,15 +127,15 @@ export function DueBreakdown({
           ))}
         <div className="flex justify-between gap-3 border-t border-border pt-2 font-medium">
           <dt>Итого к оплате</dt>
-          <dd className="tabular-nums">{formatMoney(due.total, decimals)}</dd>
+          <dd className="tabular-nums">{formatMoney(total, decimals)}</dd>
         </div>
       </dl>
-      {due.total !== '0' && accruedTo < now ? (
+      {total !== '0' && accruedTo < now ? (
         <>
           <p className="mt-2 text-sm">
             Рекомендуем перевести{' '}
             <span className="font-medium tabular-nums">
-              {formatMoney(roundUp(due.total, decimals), decimals)}
+              {formatMoney(roundUp(total, decimals), decimals)}
             </span>{' '}
             — с запасом.
           </p>

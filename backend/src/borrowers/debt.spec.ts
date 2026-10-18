@@ -376,6 +376,47 @@ describe('дефолт', () => {
     expect(outstandingPrincipal(defaulted())).toBe(5_000n * USDC);
   });
 
+  /**
+   * График после дефолта отменён, и поля просрочки обнулены. Если складывать
+   * их, как в активном займе, заёмщику покажут одну пеню — на этом и
+   * споткнулся экран «Оплатить» по кампании №25 на стенде.
+   */
+  it('к оплате — весь долг, а не одна пеня', () => {
+    const debt = amountDue(defaulted(), START);
+    expect(debt.principal).toBe(5_000n * USDC);
+    expect(debt.scheduledInterest).toBe(200n * USDC);
+    expect(debt.extraInterest).toBe(0n);
+    expect(debt.total).toBe(5_200n * USDC + debt.penalty);
+    // Ровно те же числа, что показывает блок взыскания.
+    expect(debt.total).toBe(defaultDebt(defaulted(), START).total);
+  });
+
+  it('все обязательства в дефолте равны текущему долгу', () => {
+    // Ненаступивших платежей больше нет: весь остаток уже в долге.
+    expect(totalOutstanding(defaulted(), START + 10 * DAY)).toBe(
+      amountDue(defaulted(), START + 10 * DAY).total,
+    );
+  });
+
+  /**
+   * Настоящая кампания №25 со стенда, поля прочитаны из devnet. Экран
+   * показывал 152,57 — столько там пени, — а заёмщик должен ≈ 76 642.
+   */
+  it('повторяет числа кампании №25 со стенда', () => {
+    const live = defaulted({
+      defaultPrincipal: 76_434_925_462n,
+      defaultInterest: 48_668_000n,
+      penalty: 142_427_000n,
+      annualRateBps: 1_200,
+      penaltyRateBps: 2_000,
+      lastAccrualTs: START,
+    });
+    const debt = amountDue(live, START + 6 * 3_600);
+    expect(debt.principal).toBe(76_434_925_462n);
+    expect(debt.total).toBeGreaterThan(76_600n * USDC);
+    expect(debt.total).toBeLessThan(76_700n * USDC);
+  });
+
   it('расходы на взыскание считаются отдельно от долга', () => {
     expect(
       recoveryOutstanding({
