@@ -29,7 +29,7 @@ Everything below is open on the live stand. Sign in, click through, then verify 
 
 ### Watch it work
 
-Eight recordings following one issue from its creation to a bondholder vote on declaring default, one role at a time — twenty-four minutes in all. The interface is in Russian; each video's description says in English what is happening on screen.
+Nine recordings following one issue through its whole life — creation, funding, servicing, default, redemption — one role at a time, twenty-six minutes in all. The interface is in Russian; each video's description says in English what is happening on screen.
 
 | # | Video | Who is at the keyboard | What it shows | Length |
 |---|---|---|---|---|
@@ -41,6 +41,7 @@ Eight recordings following one issue from its creation to a bondholder vote on d
 | 6 | [The borrower pays part of the debt](https://youtu.be/AigFi6wyrjY) | Borrower | 50,000 USDC against a larger debt: interest first, then interest on arrears, then principal — the penalty is last in the queue and gets nothing | 2:42 |
 | 7 | [A coupon as a corporate action](https://youtu.be/m-aWozmKf0U) | Administrator | The record date declared in advance, the holder register snapshotted against it with its hash anchored on-chain, and the action linked to the payment that settled it — MT564 before, MT566 after | 2:23 |
 | 8 | [A bondholder vote as a corporate action](https://youtu.be/pTyQqO7UPBc) | Administrator, then two holders | The vote declared with a record date and a recovery-cost budget, weights taken from the snapshot rather than current balances, the tally anchored on-chain — and the default declared on its result | 4:45 |
+| 9 | [Redemption as a corporate action](https://youtu.be/nitGtI3FrtM) | Administrator, then the borrower | The debt recovered in full, the redemption declared against a record date and settled, and the notes burned through the permanent delegate — supply goes to zero and the issue closes | 2:25 |
 
 ### Accounts on the stand
 
