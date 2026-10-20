@@ -2,7 +2,8 @@
 
 **English** · [Русский](KASE.ru.md)
 
-Technical overview for the **KASE × Superteam Kazakhstan** side track.
+**Short technical overview** for the **KASE × Superteam Kazakhstan** side track — the five things the track asks it to cover: architecture (§2),
+record-date logic (§4), entitlement calculations (§4), settlement flow (§5), Solana components (§2–3).
 
 Dala Capital is a working private-credit platform on Solana: Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet. This side track extends it with the part that matters after issuance — **servicing a tokenized bond through its lifecycle**: identify holders on a record date, calculate entitlements, execute or initiate the action, and record the outcome on-chain.
 

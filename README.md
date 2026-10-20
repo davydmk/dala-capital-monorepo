@@ -12,8 +12,8 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 
 | Document | What is inside | Language | For whom |
 |---|---|---|---|
-| KASE | The side track answered in full: the instrument, the record date, entitlement formulas, the three scenarios with devnet numbers, implemented vs simulated | [EN](KASE.md) · [RU](KASE.ru.md) | Judges, anyone evaluating the corporate-action design |
-| Architecture | Why the system is shaped this way: settlement without iterating over holders, investors without wallets, what each service key can and cannot do | [EN](docs/architecture.md) · [RU](docs/architecture.ru.md) | Anyone asking how it is built, before how it is used |
+| **Short technical overview** (KASE.md) | The side track answered in full: the instrument, the record date, entitlement formulas, the three scenarios with devnet numbers, implemented vs simulated | [EN](KASE.md) · [RU](KASE.ru.md) | Judges, anyone evaluating the corporate-action design |
+| Architecture — beyond what the track asks for | Why the system is shaped this way: settlement without iterating over holders, investors without wallets, what each service key can and cannot do | [EN](docs/architecture.md) · [RU](docs/architecture.ru.md) | Anyone asking how it is built, before how it is used |
 | Contract reference | Accounts, the accounting model, the life of a campaign, an entry per instruction with signer, checks and errors | [EN](smartcontracts/CONTRACT.md) · [RU](smartcontracts/CONTRACT.ru.md) | Anyone reading the programs |
 | Backend README | What the service is responsible for, the module map, how the contract's arithmetic is mirrored, how to run it | [EN](backend/README.md) — English only | Backend readers |
 | Frontend README | The three cabinets route by route, how the browser reaches the API | [EN](frontend/README.md) — English only | Frontend readers |
@@ -26,6 +26,16 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 ## For judges: start here
 
 Everything below is open on the live stand. Sign in, click through, then verify the same facts in a block explorer.
+
+### What the track asks for, and where it is
+
+| Submission requirement | Where it is |
+|---|---|
+| Working prototype | [app.dala-capital.live](https://app.dala-capital.live) — devnet, real transactions, credentials below |
+| Demo video | nine recordings, one per role: [Watch it work](#watch-it-work) |
+| Source code repository | this repository; the layout is [below](#layout) |
+| Short technical overview | [KASE.md](KASE.md) — architecture, record-date logic, entitlement calculations, settlement flow, Solana components |
+| Clear distinction between implemented functionality and simulated integrations | [Implemented vs simulated](#implemented-vs-simulated), and [KASE.md §6](KASE.md) in full |
 
 ### Watch it work
 
@@ -100,6 +110,8 @@ Issue **#24** `KZ0000000062` is open right now: 751 000 USDC placed, 751 notes a
 Implemented on Solana: the Token-2022 instrument with frozen holder accounts and a permanent delegate, issuance and burning, corporate-action accounts with enforced stage order, record-date checks, entitlement arithmetic, coupon and principal settlement, events on every transition.
 
 Simulated or deliberately off-chain: the register snapshot itself (computed off-chain, published, hash anchored), ballots (cast in the cabinet, tally and hash anchored), and fiat rails (the platform settles in USDC end to end). [KASE.md §6](KASE.md) spells out each one and why.
+
+The track allows external and fiat payment rails to be simulated, but requires the entitlement logic and the Solana-based flow to work. Both do: entitlements are computed by unit-tested pure functions and settled on-chain by `dala_capital`, and no payment in this project ever leaves Solana.
 
 ---
 
