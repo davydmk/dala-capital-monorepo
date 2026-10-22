@@ -147,7 +147,7 @@ Balances are read **from the chain**, per holder, with `getMultipleAccountsInfo`
 
 ### What goes on-chain, and why only a hash
 
-The snapshot writes to the action account: holder count, total units, total amount, and the **SHA-256 of the canonical register**. The register itself is published at `GET /bonds/:id/register/:index`.
+The snapshot writes to the action account: holder count, total units, total amount, and the **SHA-256 of the canonical register**. The register itself is published, without a sign-in, at [app.dala-capital.live/verify](https://app.dala-capital.live/verify): the list, the hash from the chain, and a button that recomputes SHA-256 in the browser and compares the two.
 
 Anyone can recompute the hash from the published list, recompute every entitlement from it, and verify each weight against on-chain balances. Writing one account per holder would have cost ~100× more rent and added nothing to verifiability.
 
@@ -266,7 +266,7 @@ The track asks for this distinction explicitly.
 
 ### Simplified, and why
 
-- **Transfers are disabled**, so the record date is not yet economically load-bearing (see §3).
+- **Transfers are disabled.** This is a decision, not a shortcut: a Kazakhstani corporate bond is a registered security, title passes through a registrar who checks both sides, and a freely transferable token would also let a coupon land on a holder nobody has verified. The consequence is stated honestly — while transfers are closed, the register on the record date always equals the register at payment, so the mechanism is real but not yet load-bearing (see §3). Opening registrar-mediated transfers is one instruction, and it is in §8.
 - **The holder candidate list** comes from platform records; balances come from the chain (see §4).
 - **Bond issuance is operator-driven**, as everything else in this custodial model: investors never sign.
 
@@ -315,5 +315,6 @@ The pieces that make this production infrastructure rather than a prototype are 
 2. **On-chain ballots** signed by holders, once wallet login exists.
 3. **An indexer** instead of candidate lists, for issues with hundreds of holders.
 4. **Multisig** in place of the server-side admin key before mainnet.
+5. **ISO 20022 alongside ISO 15022.** The notices follow MT564 and MT566 because that is what depositories run today and what a settlement operator recognises on sight. The direction of travel is `seev.031` and `seev.036`, and every field those messages need is already in the action account — what is missing is the envelope: network blocks, BIC addressing and passing a validator.
 
 Tokenization does not end at issuance. This is the servicing layer.

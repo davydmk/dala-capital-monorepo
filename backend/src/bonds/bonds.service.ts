@@ -1380,6 +1380,120 @@ export class BondsService {
     return map;
   }
 
+  // ── Публичная проекция ───────────────────────────────────────────────────
+  //
+  // Всё, что покрыто хешем реестра, можно отдавать без входа: в отпечаток
+  // идут счёт, токен-счёт, бумаги и сумма — имён там нет. Поэтому публично
+  // публикуется ровно список, по которому хеш и считается, а имя, тип и
+  // страна остаются у регистратора. Отдельного источника данных здесь нет:
+  // те же методы, другая проекция.
+
+  /** Выпуски для страницы проверки: условия и состояние, без держателей. */
+  async publicList() {
+    const campaigns = await this.prisma.campaign.findMany({
+      where: {
+        scheduleKind: ScheduleKind.COUPON,
+        state: CampaignState.PUBLISHED,
+        onchainId: { not: null },
+      },
+      orderBy: { onchainId: 'desc' },
+    });
+
+    const rows = await Promise.all(
+      campaigns.map(async (campaign) => {
+        const onchainId = BigInt(campaign.onchainId!);
+        const registry = await this.bonds.registry(onchainId);
+        if (!registry) return null;
+        const actions = await this.bonds.actions(onchainId);
+        return {
+          campaignId: campaign.id,
+          title: campaign.title,
+          mintDecimals: campaign.mintDecimals,
+          isin: registry.isin,
+          status: registry.status,
+          faceValue: registry.faceValue,
+          couponRateBps: registry.couponRateBps,
+          couponsPerYear: registry.couponsPerYear,
+          maturityTs: registry.maturityTs,
+          issued: registry.issued,
+          outstanding: registry.outstanding,
+          actions: actions.length,
+        };
+      }),
+    );
+    return rows.filter((row): row is NonNullable<typeof row> => row !== null);
+  }
+
+  /** Один выпуск: условия из минта и журнал действий со ссылками в сеть. */
+  async publicBond(campaignId: string) {
+    const { campaign, onchainId, registry } =
+      await this.bondCampaign(campaignId);
+    const actions = await this.bonds.actions(onchainId);
+    return {
+      campaignId: campaign.id,
+      title: campaign.title,
+      mintDecimals: campaign.mintDecimals,
+      isin: registry.isin,
+      status: registry.status,
+      faceValue: registry.faceValue,
+      couponRateBps: registry.couponRateBps,
+      couponsPerYear: registry.couponsPerYear,
+      maturityTs: registry.maturityTs,
+      issued: registry.issued,
+      outstanding: registry.outstanding,
+      mint: registry.mint,
+      mintUrl: this.bonds.explorerToken(registry.mint),
+      actions: actions.map((action) => ({
+        index: action.index,
+        kind: action.kind,
+        status: action.status,
+        recordTs: action.recordTs,
+        paymentTs: action.paymentTs,
+        amountPerUnit: action.amountPerUnit,
+        holders: action.holders,
+        units: action.units,
+        totalAmount: action.totalAmount,
+        registerHash: action.registerHash,
+        votesFor: action.votesFor,
+        votesAgainst: action.votesAgainst,
+        settlement: action.settlement,
+        settlementUrl: action.settlement
+          ? this.bonds.explorerTx(action.settlement)
+          : null,
+      })),
+      now: nowTs(),
+    };
+  }
+
+  /**
+   * Канонический список по снимку — ровно в том виде, в каком он идёт в хеш,
+   * включая порядок сортировки. По нему любой пересчитает SHA-256 сам и
+   * сравнит с отпечатком в аккаунте действия.
+   */
+  async publicRegister(campaignId: string, index: number) {
+    const snapshot = await this.prisma.bondSnapshot.findUnique({
+      where: { campaignId_actionIndex: { campaignId, actionIndex: index } },
+    });
+    if (!snapshot) throw new NotFoundException('Реестр ещё не снят');
+    const rows = snapshot.holders as unknown as SnapshotHolder[];
+    return {
+      recordTs: snapshot.recordTs,
+      units: snapshot.units,
+      totalAmount: snapshot.totalAmount,
+      hash: snapshot.hash,
+      holders: [...rows]
+        .sort((a, b) =>
+          a.holder < b.holder ? -1 : a.holder > b.holder ? 1 : 0,
+        )
+        .map((row) => ({
+          holder: row.holder,
+          tokenAccount: row.tokenAccount,
+          units: row.units,
+          amount: row.amount,
+        })),
+    };
+  }
+
   /** Кампания с выпущенной бумагой: без неё корпоративных действий нет. */
   private async bondCampaign(campaignId: string) {
     const campaign = await this.prisma.campaign.findUnique({

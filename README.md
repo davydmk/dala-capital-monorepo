@@ -82,13 +82,13 @@ A fourth action type exists for completeness: a **record-only snapshot** with no
 | Required | Where it is |
 |---|---|
 | Test tokenized instrument | Token-2022 mint created by the program itself, terms and ISIN in its metadata: [issue #24 mint](https://explorer.solana.com/address/FZmEPxQN4KBm3HaMowHQmJWcxD2qAjayx877KsWwKpzx/token-extensions?cluster=devnet) |
-| Holder registry | On-chain balances read per holder; the published list is at `GET /api/bonds/:id/register/:index`, by name on the admin screen |
+| Holder registry | On-chain balances read per holder; the published list is at [/verify](https://app.dala-capital.live/verify), open without a sign-in, and by name on the registrar's screen |
 | Record-date mechanism | Declared in advance; the contract refuses a snapshot before the date and settlement before a snapshot |
 | Entitlement calculation | `backend/src/bonds/entitlements.ts`, unit-tested against the brief's own example (10 × $1 000 × 10% ÷ 2 = $500) |
 | Coupon payment | Scenario 1 above |
 | Bond redemption | Scenario 2 above |
 | One additional corporate action | Scenario 3 above |
-| Verifiable on-chain record | Every action is an account with status, dates, amounts, holder count, register hash and settlement signature; every transition also emits an event |
+| Verifiable on-chain record | Every action is an account with status, dates, amounts, holder count, register hash and settlement signature; every transition also emits an event. **Check it yourself without signing in: [/verify](https://app.dala-capital.live/verify)** — the page republishes the list the hash covers and recomputes SHA-256 in your browser |
 
 ### Live issue to click through
 

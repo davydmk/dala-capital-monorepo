@@ -1348,6 +1348,50 @@ export interface LiveTally {
 }
 
 /** Строка списка выпусков у админа. */
+/**
+ * Выпуск на публичной странице проверки. Держателей тут нет: они приходят
+ * отдельным запросом по снимку, и только теми полями, что идут в хеш.
+ */
+export interface PublicBondSummary {
+  campaignId: string;
+  title: string;
+  mintDecimals: number;
+  isin: string;
+  status: BondStatus;
+  faceValue: string;
+  couponRateBps: number;
+  couponsPerYear: number;
+  maturityTs: number;
+  issued: string;
+  outstanding: string;
+  actions: number;
+}
+
+export interface PublicBond extends Omit<PublicBondSummary, 'actions'> {
+  mint: string;
+  mintUrl: string;
+  /** Журнал действий выпуска: тот же, что видит регистратор, без имён. */
+  actions: CorporateAction[];
+  /** Часы платформы: по ним на странице считаются даты. */
+  now: number;
+}
+
+/** Канонический список по снимку — ровно то, что покрыто отпечатком. */
+export interface PublicRegisterRow {
+  holder: string;
+  tokenAccount: string;
+  units: string;
+  amount: string;
+}
+
+export interface PublicRegister {
+  recordTs: number;
+  units: string;
+  totalAmount: string;
+  hash: string;
+  holders: PublicRegisterRow[];
+}
+
 export interface BondSummary {
   campaignId: string;
   title: string;

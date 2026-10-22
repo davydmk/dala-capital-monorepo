@@ -18,6 +18,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import cookieParser from 'cookie-parser';
+import { createHash } from 'node:crypto';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
@@ -1054,6 +1055,101 @@ describe('Облигации и корпоративные действия (e2e
       expect(chain.burns.slice(before).every((burn) => burn.redemption)).toBe(
         true,
       );
+    });
+  });
+
+  describe('проверка без входа', () => {
+    /** Индекс служебного реестра: на нём уже есть снимок со списком. */
+    const recordIndex = async () => {
+      const page = await http()
+        .get(`/bonds/${bondId}`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+      return (
+        page.body as { actions: { kind: string; index: number }[] }
+      ).actions.find((item) => item.kind === 'record')!.index;
+    };
+
+    it('выпуск и журнал открываются без авторизации', async () => {
+      const list = await http().get('/public/bonds').expect(200);
+      expect(
+        (list.body as { campaignId: string }[]).some(
+          (row) => row.campaignId === bondId,
+        ),
+      ).toBe(true);
+
+      const page = await http().get(`/public/bonds/${bondId}`).expect(200);
+      const body = page.body as {
+        faceValue: string;
+        mintUrl: string;
+        actions: { registerHash: string; status: string }[];
+      };
+      // ISIN у выпуска может и не быть — он необязателен; а условия и журнал
+      // есть всегда, и именно по ним судья проверяет выпуск.
+      expect(BigInt(body.faceValue)).toBeGreaterThan(0n);
+      // Ссылка в обозреватель: в тестах адрес подменён, важен сам факт.
+      expect(body.mintUrl).toContain('BondMint');
+      expect(body.actions.length).toBeGreaterThan(0);
+    });
+
+    it('в публичном списке держателей нет ни одного имени', async () => {
+      const index = await recordIndex();
+      const page = await http()
+        .get(`/public/bonds/${bondId}/register/${index}`)
+        .expect(200);
+
+      const body = page.body as {
+        recordTs: number;
+        hash: string;
+        holders: Record<string, unknown>[];
+      };
+      expect(body.hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(body.holders.length).toBeGreaterThan(0);
+      for (const row of body.holders) {
+        // В отпечаток идут только счёт, токен-счёт, бумаги и сумма.
+        expect(Object.keys(row).sort()).toEqual([
+          'amount',
+          'holder',
+          'tokenAccount',
+          'units',
+        ]);
+      }
+      expect(JSON.stringify(body)).not.toContain('Alice');
+    });
+
+    it('опубликованный список даёт тот же хеш, что в сети', async () => {
+      const index = await recordIndex();
+      const page = await http()
+        .get(`/public/bonds/${bondId}/register/${index}`)
+        .expect(200);
+      const body = page.body as {
+        recordTs: number;
+        hash: string;
+        holders: {
+          holder: string;
+          tokenAccount: string;
+          units: string;
+          amount: string;
+        }[];
+      };
+
+      // Повторяем канонизацию снаружи — ровно так её делает и браузер.
+      const canonical = body.holders
+        .map(
+          (row) =>
+            `${row.holder}:${row.tokenAccount}:${row.units}:${row.amount}`,
+        )
+        .join('\n');
+      const digest = createHash('sha256')
+        .update(`${body.recordTs}\n${canonical}`)
+        .digest('hex');
+      expect(digest).toBe(body.hash);
+    });
+
+    it('именная выписка без авторизации не отдаётся', async () => {
+      const index = await recordIndex();
+      await http().get(`/bonds/${bondId}/register/${index}`).expect(401);
+      await http().get(`/bonds/${bondId}/register/${index}/csv`).expect(401);
     });
   });
 

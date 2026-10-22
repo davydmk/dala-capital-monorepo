@@ -3,6 +3,9 @@ import type {
   AdminDashboard,
   BondPage,
   BondSummary,
+  PublicBond,
+  PublicBondSummary,
+  PublicRegister,
   MyBond,
   VoteTally,
   BorrowerDetails,
@@ -433,6 +436,15 @@ export const api = {
   },
 
   /** Облигации и корпоративные действия: сторона платформы. */
+  /** Проверка выпуска без входа: то, что открыто кому угодно. */
+  publicBonds: {
+    list: () => request<PublicBondSummary[]>('/public/bonds'),
+    get: (campaignId: string) =>
+      request<PublicBond>(`/public/bonds/${campaignId}`),
+    register: (campaignId: string, index: number) =>
+      request<PublicRegister>(`/public/bonds/${campaignId}/register/${index}`),
+  },
+
   bonds: {
     list: () => request<BondSummary[]>('/bonds'),
     get: (campaignId: string) => request<BondPage>(`/bonds/${campaignId}`),

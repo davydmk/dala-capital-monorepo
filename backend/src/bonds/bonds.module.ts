@@ -3,6 +3,7 @@ import { BondProgramService } from './bond-program.service.js';
 import {
   BondsController,
   InvestorBondsController,
+  PublicBondsController,
 } from './bonds.controller.js';
 import { BondsService } from './bonds.service.js';
 
@@ -12,7 +13,7 @@ import { BondsService } from './bonds.service.js';
  * остаётся односторонней и кольца не возникает.
  */
 @Module({
-  controllers: [InvestorBondsController, BondsController],
+  controllers: [PublicBondsController, InvestorBondsController, BondsController],
   providers: [BondProgramService, BondsService],
   exports: [BondsService, BondProgramService],
 })

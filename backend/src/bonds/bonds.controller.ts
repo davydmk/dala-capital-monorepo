@@ -20,7 +20,7 @@ import {
   Matches,
   Min,
 } from 'class-validator';
-import { Roles } from '../auth/auth.guard.js';
+import { Public, Roles } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { SessionPayload } from '../auth/auth.service.js';
 import { BondsService } from './bonds.service.js';
@@ -257,5 +257,38 @@ export class InvestorBondsController {
       dto.choice,
     );
     return serialize({ tally, ...(await this.bonds.myBonds(session.sub)) });
+  }
+}
+
+/**
+ * Проверка выпуска без входа.
+ *
+ * Отпечаток реестра считается по строкам «счёт:токен-счёт:бумаги:сумма» —
+ * имён в нём нет. Значит список, который он покрывает, можно отдать кому
+ * угодно: любой пересчитает SHA-256 и сравнит с тем, что лежит в аккаунте
+ * действия в сети. Именная выписка и выгрузка с документами остаются у
+ * регистратора — здесь только то, что покрыто хешем.
+ */
+@Controller('public/bonds')
+@Public()
+export class PublicBondsController {
+  constructor(private readonly bonds: BondsService) {}
+
+  @Get()
+  async list() {
+    return serialize(await this.bonds.publicList());
+  }
+
+  @Get(':campaignId')
+  async bond(@Param('campaignId', ParseUUIDPipe) campaignId: string) {
+    return serialize(await this.bonds.publicBond(campaignId));
+  }
+
+  @Get(':campaignId/register/:index')
+  async register(
+    @Param('campaignId', ParseUUIDPipe) campaignId: string,
+    @Param('index', ParseIntPipe) index: number,
+  ) {
+    return serialize(await this.bonds.publicRegister(campaignId, index));
   }
 }
