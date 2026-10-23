@@ -63,6 +63,15 @@ export class AuthGuard implements CanActivate {
     }
     request.user = payload;
 
+    // Режим просмотра: читать можно всё, менять — ничего. Запрет стоит
+    // здесь, а не на экранах: так он действует и на те маршруты, которые
+    // появятся потом, и его нельзя забыть в одной кнопке из сотни.
+    if (payload.viewer && request.method !== 'GET') {
+      throw new ForbiddenException(
+        'Режим просмотра: изменения недоступны. Войдите со своими доступами, чтобы действовать',
+      );
+    }
+
     const roles = this.reflector.getAllAndOverride<Role[]>(ROLES, targets);
     if (roles?.length && !roles.includes(payload.role)) {
       throw new ForbiddenException('Недостаточно прав');

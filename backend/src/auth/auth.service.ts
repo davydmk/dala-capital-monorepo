@@ -14,7 +14,31 @@ export interface SessionPayload {
   email: string;
   role: Role;
   status: UserStatus;
+  /**
+   * Режим просмотра: сессия настоящего пользователя, но только чтение.
+   * Запрет держит `AuthGuard`, а не экраны: иначе одна забытая кнопка
+   * превращает «посмотреть» в «изменить».
+   */
+  viewer?: true;
 }
+
+/**
+ * Кто показывается в режиме просмотра. Это не выдуманные люди, а те же
+ * учётные записи стенда, что в таблице доступов README: судья должен
+ * увидеть ровно те экраны с ровно теми данными, что сняты в роликах.
+ */
+export const VIEWER_EMAIL: Record<string, string> = {
+  admin: 'admin@dala.capital',
+  investor: 'holder2@dala.capital',
+  borrower: 'director@astana-trade.kz',
+};
+
+/** Чей кабинет показывать, если именного пользователя в базе нет. */
+const VIEWER_ROLE: Record<string, Role> = {
+  admin: Role.ADMIN,
+  investor: Role.INVESTOR,
+  borrower: Role.BORROWER,
+};
 
 /** Пользователь в ответах API: без хеша пароля. */
 export interface PublicUser {
@@ -99,14 +123,44 @@ export class AuthService {
   }
 
   /** Токен сессии для пользователя: нужен и при входе, и при приёме приглашения. */
-  async issueToken(user: User): Promise<string> {
+  async issueToken(user: User, viewer = false): Promise<string> {
     const payload: SessionPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
       status: user.status,
+      ...(viewer ? { viewer: true as const } : {}),
     };
     return this.jwt.signAsync(payload);
+  }
+
+  /**
+   * Вход в режиме просмотра — без пароля и без регистрации. Роль выбирается
+   * из трёх разрешённых; подставить сюда чужую почту нельзя: список закрытый.
+   * Дата предыдущего входа не обновляется: гость не должен менять ничего,
+   * даже служебного поля.
+   */
+  async viewerLogin(
+    role: string,
+  ): Promise<{ token: string; user: PublicUser }> {
+    const email = VIEWER_EMAIL[role];
+    const wanted = VIEWER_ROLE[role];
+    if (!email || !wanted) throw new BadRequestException('Неизвестная роль');
+    // Сначала тот, чей кабинет снят в роликах. Если базу пересобрали
+    // и такого пользователя нет — берём любого с этой ролью: пустая кнопка
+    // перед судьёй хуже, чем чужое имя в шапке.
+    const user =
+      (await this.prisma.user.findUnique({ where: { email } })) ??
+      (await this.prisma.user.findFirst({
+        where: { role: wanted, status: UserStatus.ACTIVE },
+        orderBy: { createdAt: 'asc' },
+      }));
+    if (!user) {
+      throw new BadRequestException(
+        'Режим просмотра не настроен: показывать некого',
+      );
+    }
+    return { token: await this.issueToken(user, true), user: toPublicUser(user) };
   }
 
   async login(

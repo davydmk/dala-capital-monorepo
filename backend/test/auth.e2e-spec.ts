@@ -5,12 +5,14 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Role, UserStatus } from '@prisma/client';
+import { hash } from '@node-rs/argon2';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SESSION_COOKIE } from '../src/auth/auth.guard.js';
+import { VIEWER_EMAIL } from '../src/auth/auth.service.js';
 
 const INVESTOR = {
   email: 'e2e-investor@example.com',
@@ -29,7 +31,9 @@ describe('Аутентификация (e2e)', () => {
 
   const cleanup = () =>
     prisma.user.deleteMany({
-      where: { email: { in: [INVESTOR.email, ADMIN.email] } },
+      where: {
+        email: { in: [INVESTOR.email, ADMIN.email, VIEWER_EMAIL.investor] },
+      },
     });
 
   beforeAll(async () => {
@@ -170,6 +174,69 @@ describe('Аутентификация (e2e)', () => {
       .send({ email: ADMIN.email, password: ADMIN.password })
       .expect(401);
     expect(response.headers['set-cookie']).toBeUndefined();
+  });
+
+
+  /**
+   * Режим просмотра: судья заходит в настоящий кабинет без пароля, но
+   * сервер не должен принять ни одного изменения — ни сейчас, ни по маршрутам,
+   * которые появятся потом.
+   */
+  describe('режим просмотра', () => {
+    let viewerCookie: string;
+
+    beforeAll(async () => {
+      await prisma.user.upsert({
+        where: { email: VIEWER_EMAIL.investor },
+        update: {},
+        create: {
+          email: VIEWER_EMAIL.investor,
+          passwordHash: await hash('пароль-держателя'),
+          name: 'Держатель бумаг',
+          role: Role.INVESTOR,
+        },
+      });
+      const response = await http().post('/auth/view/investor').expect(200);
+      viewerCookie = (
+        response.headers['set-cookie'] as unknown as string[]
+      )[0];
+    });
+
+    it('вход без пароля даёт сессию с пометкой просмотра', async () => {
+      const me = await http()
+        .get('/auth/me')
+        .set('Cookie', viewerCookie)
+        .expect(200);
+      expect((me.body as { viewer?: boolean }).viewer).toBe(true);
+      expect((me.body as { email: string }).email).toBe(VIEWER_EMAIL.investor);
+    });
+
+    it('чтение работает, изменения отклоняются', async () => {
+      await http().get('/tasks').set('Cookie', viewerCookie).expect(200);
+
+      const denied = await http()
+        .patch('/auth/me')
+        .set('Cookie', viewerCookie)
+        .send({ name: 'Новое имя' })
+        .expect(403);
+      expect((denied.body as { message: string }).message).toContain(
+        'Режим просмотра',
+      );
+
+      await http()
+        .post('/auth/password')
+        .set('Cookie', viewerCookie)
+        .send({ currentPassword: 'a', newPassword: 'длинный-пароль' })
+        .expect(403);
+    });
+
+    it('чужая роль в режим просмотра не пускает', async () => {
+      await http().post('/auth/view/treasury').expect(400);
+    });
+
+    it('выйти из режима просмотра можно', async () => {
+      await http().post('/auth/logout').set('Cookie', viewerCookie).expect(204);
+    });
   });
 
   describe('свой профиль', () => {

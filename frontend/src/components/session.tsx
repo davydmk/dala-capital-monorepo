@@ -6,6 +6,7 @@ import {
   QueryClientProvider,
   useMutation,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
@@ -35,10 +36,20 @@ export function useSession() {
 
 export function useLogout() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: api.logout,
     onSettled: () => {
-      router.replace('/login');
+      // Куда вести, решаем по сессии из кэша, а не по состоянию экрана:
+      // к моменту выхода экран мог уже перерисоваться. Гостю форма входа
+      // ни к чему — у него нет доступов, его возвращаем на титульную.
+      const session = queryClient.getQueryData<User>(['session']);
+      const next = session?.viewer ? '/' : '/login';
+      // Чистим весь кэш, а не одну сессию: иначе следующий вошедший увидит
+      // данные предыдущего — имя, роль, задачи, кампании, — пока запросы не
+      // переспросят сервер. В общем браузере это ещё и утечка.
+      queryClient.clear();
+      router.replace(next);
       router.refresh();
     },
   });

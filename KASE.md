@@ -147,7 +147,7 @@ Balances are read **from the chain**, per holder, with `getMultipleAccountsInfo`
 
 ### What goes on-chain, and why only a hash
 
-The snapshot writes to the action account: holder count, total units, total amount, and the **SHA-256 of the canonical register**. The register itself is published, without a sign-in, at [app.dala-capital.live/verify](https://app.dala-capital.live/verify): the list, the hash from the chain, and a button that recomputes SHA-256 in the browser and compares the two.
+The snapshot writes to the action account: holder count, total units, total amount, and the **SHA-256 of the canonical register**. The register itself is published without a sign-in at `GET /api/public/bonds/:id/register/:index`, in the exact form the hash is computed over.
 
 Anyone can recompute the hash from the published list, recompute every entitlement from it, and verify each weight against on-chain balances. Writing one account per holder would have cost ~100× more rent and added nothing to verifiability.
 

@@ -116,6 +116,13 @@ export const api = {
     }),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
 
+  /**
+   * Вход в режиме просмотра: те же кабинеты с настоящими данными, но
+   * сервер отклоняет любое изменение. Пароль не нужен.
+   */
+  view: (role: 'admin' | 'investor' | 'borrower') =>
+    request<User>(`/auth/view/${role}`, { method: 'POST' }),
+
   /** Меняется только имя: почта — это логин. */
   updateName: (name: string) =>
     request<User>('/auth/me', {

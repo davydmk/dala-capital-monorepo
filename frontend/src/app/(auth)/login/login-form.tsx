@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -25,9 +25,13 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<Values>({ resolver: zodResolver(schema) });
 
+  const queryClient = useQueryClient();
   const login = useMutation<User, ApiError, Values>({
     mutationFn: ({ email, password }) => api.login(email, password),
     onSuccess: (user) => {
+      // В одной вкладке могли войти другим человеком — старый кэш ему не принадлежит.
+      queryClient.clear();
+      queryClient.setQueryData(['session'], user);
       // Возвращаем туда, куда человек шёл до входа, иначе — в кабинет его роли.
       const next = params.get('next');
       router.replace(next?.startsWith('/') ? next : HOME_BY_ROLE[user.role]);

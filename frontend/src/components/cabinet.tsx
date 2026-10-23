@@ -22,9 +22,11 @@ export function Cabinet({
   const router = useRouter();
 
   // Кука есть, но сервер её отверг (истекла или пользователя заблокировали).
+  // При своём выходе сюда не лезем: сессия тоже отвечает 401, и этот переход
+  // перебивал бы тот, что делает сам выход, — гостя уносило на форму входа.
   useEffect(() => {
-    if (isError) router.replace('/login');
-  }, [isError, router]);
+    if (isError && logout.isIdle) router.replace('/login');
+  }, [isError, logout.isIdle, router]);
 
   if (isPending || isError) {
     return (

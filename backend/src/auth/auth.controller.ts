@@ -1,5 +1,6 @@
 import {
   Body,
+  Param,
   Controller,
   Get,
   HttpCode,
@@ -46,6 +47,22 @@ export class AuthController {
     return user;
   }
 
+  /**
+   * Вход в режиме просмотра: те же кабинеты с настоящими данными, но без
+   * права что-либо менять. Пароль не спрашивается — выбор из трёх ролей.
+   */
+  @Public()
+  @Post('view/:role')
+  @HttpCode(200)
+  async view(
+    @Param('role') role: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<PublicUser & { viewer: true }> {
+    const { token, user } = await this.auth.viewerLogin(role);
+    response.cookie(SESSION_COOKIE, token, sessionCookieOptions());
+    return { ...user, viewer: true };
+  }
+
   @Public()
   @Post('logout')
   @HttpCode(204)
@@ -53,10 +70,17 @@ export class AuthController {
     clearSessionCookie(response);
   }
 
-  /** Кто я. Фронт зовёт при загрузке, чтобы понять, куда вести пользователя. */
+  /**
+   * Кто я. Фронт зовёт при загрузке, чтобы понять, куда вести пользователя.
+   * Флаг просмотра живёт в токене, а не в базе: один и тот же человек может
+   * войти и по-настоящему, и посмотреть.
+   */
   @Get('me')
-  me(@CurrentUser() session: SessionPayload): Promise<PublicUser> {
-    return this.auth.currentUser(session.sub);
+  async me(
+    @CurrentUser() session: SessionPayload,
+  ): Promise<PublicUser & { viewer?: true }> {
+    const user = await this.auth.currentUser(session.sub);
+    return session.viewer ? { ...user, viewer: true } : user;
   }
 
   /** Меняется только имя: почта — это логин, и подтвердить её смену нечем. */

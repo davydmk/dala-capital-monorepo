@@ -14,6 +14,7 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 |---|---|---|---|
 | **Short technical overview** (KASE.md) | The side track answered in full: the instrument, the record date, entitlement formulas, the three scenarios with devnet numbers, implemented vs simulated | [EN](KASE.md) · [RU](KASE.ru.md) | Judges, anyone evaluating the corporate-action design |
 | The legal case | Two jurisdictions where the platform can be launched lawfully, with the articles of law behind each claim, and the way onto KASE's own infrastructure | [EN](LEGAL.md) · [RU](LEGAL.ru.md) | Anyone asking whether this is allowed |
+| Devnet run | The whole life of issue #25 transaction by transaction: 32 signatures, every one open in a block explorer, generated from the chain rather than written by hand | [EN](docs/devnet-run.md) · [RU](docs/devnet-run.ru.md) | Anyone who wants the proof without the clicking |
 | Architecture — beyond what the track asks for | Why the system is shaped this way: settlement without iterating over holders, investors without wallets, what each service key can and cannot do | [EN](docs/architecture.md) · [RU](docs/architecture.ru.md) | Anyone asking how it is built, before how it is used |
 | Contract reference | Accounts, the accounting model, the life of a campaign, an entry per instruction with signer, checks and errors | [EN](smartcontracts/CONTRACT.md) · [RU](smartcontracts/CONTRACT.ru.md) | Anyone reading the programs |
 | Backend README | What the service is responsible for, the module map, how the contract's arithmetic is mirrored, how to run it | [EN](backend/README.md) — English only | Backend readers |
@@ -26,13 +27,13 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 
 ## For judges: start here
 
-Everything below is open on the live stand. Sign in, click through, then verify the same facts in a block explorer.
+**You do not need an account.** Open [app.dala-capital.live](https://app.dala-capital.live) and pick a role — administrator, investor or borrower. You land in the real cabinet with the stand's real data; the server refuses every change, so nothing can be broken by clicking. The whole run is also written out transaction by transaction in [docs/devnet-run.md](docs/devnet-run.md). The credentials below are for those who want to try the actions themselves.
 
 ### What the track asks for, and where it is
 
 | Submission requirement | Where it is |
 |---|---|
-| Working prototype | [app.dala-capital.live](https://app.dala-capital.live) — devnet, real transactions, credentials below |
+| Working prototype | [app.dala-capital.live](https://app.dala-capital.live) — devnet, real transactions. **View mode needs no account**: pick a role on the front page; credentials for acting are below |
 | Demo video | nine recordings, one per role: [Watch it work](#watch-it-work) |
 | Source code repository | this repository; the layout is [below](#layout) |
 | Short technical overview | [KASE.md](KASE.md) — architecture, record-date logic, entitlement calculations, settlement flow, Solana components |
@@ -82,13 +83,13 @@ A fourth action type exists for completeness: a **record-only snapshot** with no
 | Required | Where it is |
 |---|---|
 | Test tokenized instrument | Token-2022 mint created by the program itself, terms and ISIN in its metadata: [issue #24 mint](https://explorer.solana.com/address/FZmEPxQN4KBm3HaMowHQmJWcxD2qAjayx877KsWwKpzx/token-extensions?cluster=devnet) |
-| Holder registry | On-chain balances read per holder; the published list is at [/verify](https://app.dala-capital.live/verify), open without a sign-in, and by name on the registrar's screen |
+| Holder registry | On-chain balances read per holder; the published list is open without a sign-in at `GET /api/public/bonds/:id/register/:index`, and by name on the registrar's screen |
 | Record-date mechanism | Declared in advance; the contract refuses a snapshot before the date and settlement before a snapshot |
 | Entitlement calculation | `backend/src/bonds/entitlements.ts`, unit-tested against the brief's own example (10 × $1 000 × 10% ÷ 2 = $500) |
 | Coupon payment | Scenario 1 above |
 | Bond redemption | Scenario 2 above |
 | One additional corporate action | Scenario 3 above |
-| Verifiable on-chain record | Every action is an account with status, dates, amounts, holder count, register hash and settlement signature; every transition also emits an event. **Check it yourself without signing in: [/verify](https://app.dala-capital.live/verify)** — the page republishes the list the hash covers and recomputes SHA-256 in your browser |
+| Verifiable on-chain record | Every action is an account with status, dates, amounts, holder count, register hash and settlement signature; every transition also emits an event. The list the hash covers is published without a sign-in at `GET /api/public/bonds/:id/register/:index`: recompute SHA-256 over it and compare with the action account |
 
 ### Live issue to click through
 

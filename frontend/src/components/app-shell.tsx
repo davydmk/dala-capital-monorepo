@@ -144,6 +144,19 @@ export function AppShell({
       ) : null}
 
       <div className="md:pl-60">
+        {/* Режим просмотра: человек должен сразу знать, почему кнопки
+            отвечают отказом, а не выяснять это первым нажатием. */}
+        {user.viewer ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-warning-soft px-4 py-2 text-sm text-warning">
+            <span>
+              <span className="font-medium">Режим просмотра.</span> Данные
+              настоящие, изменения отключены
+            </span>
+            <button onClick={onLogout} className="underline">
+              Выйти
+            </button>
+          </div>
+        ) : null}
         <header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-border bg-surface px-4">
           <button
             className="-ml-2 flex size-11 items-center justify-center rounded-lg text-muted md:hidden"
