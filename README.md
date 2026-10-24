@@ -105,7 +105,7 @@ Issue **#24** `KZ0000000062` is open right now: 751 000 USDC placed, 751 notes a
 | Corporate action logic, 25% | Stage order is enforced by the contract, not by the interface: a snapshot before the record date, settlement without a snapshot, and a burn while the loan is unpaid are all refused. Vote weight comes from the snapshot taken on the record date, not from the current balance — otherwise one could vote, exit, and keep the vote. Entitlements follow the formula from the brief itself |
 | Product & UX, 20% | Three cabinets, and each role is shown the next step rather than the whole console. The register reads as names of holders with links into their KYC files. Registrar documents download in one click: the register extract, the MT564 or MT566 notice, the action journal as a table |
 | Real-world applicability, 15% | The ISIN is validated against ISO 6166 and written into the mint's metadata. Notices follow the ISO 15022 layout with `CAEV` and `CAMV` codes — the same fields depositories have used for decades. The note is registered and non-transferable, as a corporate bond is in Kazakhstan, and the keys are named after market functions: registrar, issuing agent, paying agent, treasury. [The legal case](LEGAL.md) names the two perimeters this can be launched in and shows where the platform sits next to KASE: issuance and the register stay with licensed infrastructure, the platform is the settlement and servicing layer on top |
-| Innovation, 10% | A holder's entitlement is settled inside the very transaction in which the borrower pays: T+0 here is the shape of the settlement, not a promise in a rulebook. The register is kept by name, yet what goes on-chain is a fingerprint of rights, not of identity. Re-registration on an address change is one indivisible transaction — a half-applied state cannot exist |
+| Innovation, 10% | Settlement is index-based, so it costs the same for one holder and for a thousand: a payment moves four accumulators on the deal instead of writing an entitlement account per holder per action, and no transaction count grows with the register. A holder's entitlement is settled inside the very transaction in which the borrower pays: T+0 here is the shape of the settlement, not a promise in a rulebook. The register is kept by name, yet what goes on-chain is a fingerprint of rights, not of identity. Re-registration on an address change is one indivisible transaction — a half-applied state cannot exist |
 
 ### Implemented vs simulated
 
@@ -132,6 +132,17 @@ The track allows external and fiat payment rails to be simulated, but requires t
 ![Architecture](docs/architecture.svg)
 
 The reasoning behind each of these is in [docs/architecture.md](docs/architecture.md).
+
+**One index instead of a record per holder — this is the design decision.** A
+coupon is usually paid by writing an entitlement record for every holder and
+settling them one by one: a thousand holders means a thousand accounts, rent on
+each, well over a hundred transactions — and the next coupon starts over. Here
+an incoming payment moves a single **accrual index** on the deal, the same
+device Compound and Aave use for interest, and each holder's share is derived
+from their own position when they claim. **One transaction settles any number
+of holders and creates no accounts at all.** It is also why settlement is T+0 by
+construction: the borrower's payment *is* the settlement. [The arithmetic, in
+full](KASE.md#why-this-scales-one-index-instead-of-a-record-per-holder).
 
 **Only the contract moves money.** The platform signs transactions with service keys but custodies nothing: deposits sit in the campaign vault, and payouts are distributed by accumulators in the same transaction in which the borrower pays. Settlement is T+0 because settlement *is* the trade.
 

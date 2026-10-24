@@ -62,6 +62,13 @@ pending(principal, acc, checkpoint):
 `SCALE` is 10¹², the accumulator is per unit of raised principal, and a
 position's `checkpoint` is its watermark — what it has already taken.
 
+This is the pattern known as index-based, or scalable, reward distribution:
+Compound's `borrowIndex`, Aave's `liquidityIndex` and MasterChef's
+`accRewardPerShare` are the same device. It is used here for the same reason
+it is used there — the alternative, a record per holder per payment, turns a
+thousand holders into a thousand accounts and a hundred-odd transactions per
+coupon, every coupon.
+
 Three consequences, and they are the point:
 
 **Settlement happens inside the borrower's own payment transaction.** There is

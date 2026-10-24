@@ -9,6 +9,14 @@ Dala Capital is a working private-credit platform on Solana: Kazakhstani SMEs ra
 
 Everything described here is live on **devnet** and reproducible from this repository.
 
+> **One number worth knowing before anything else.** A coupon is usually paid by
+> writing an entitlement record for every holder and settling them one by one —
+> a thousand holders, a thousand accounts, well over a hundred transactions, and
+> the next coupon starts over. Here a payment moves a single **accrual index** on
+> the deal and each holder's share is derived from their own position, so
+> **settlement takes one transaction whatever the number of holders, and creates
+> no accounts at all**. [How it works](#why-this-scales-one-index-instead-of-a-record-per-holder).
+
 ---
 
 ## 1. What already existed, and what this track added
@@ -140,6 +148,42 @@ vote weight         = units_on_record_date
 Brief's example: 10 bonds × $1 000 × 10% ÷ 2 = **$500** coupon, **$10 000** principal at maturity, plus any final coupon. Both are asserted in `entitlements.spec.ts`.
 
 Division always rounds down. A cent that does not divide evenly stays with the issuer rather than being created out of thin air.
+
+### Why this scales: one index instead of a record per holder
+
+The usual way to service a coupon is to write an entitlement record for every
+holder: an account per holder per action, settled holder by holder, in batches
+of a handful per transaction. It works, and it does not scale. A thousand
+holders means a thousand accounts and well over a hundred transactions **for
+each coupon**, with rent paid on every account — and the next coupon starts
+over.
+
+Dala Capital settles with **accrual indices**. The same device Compound and
+Aave use for interest (`borrowIndex`, `liquidityIndex`) and staking contracts
+use to hand out rewards (`accRewardPerShare`, `rewardPerTokenStored`): the
+incoming amount moves one index on the deal, and a holder's share is derived
+from their own position when they claim.
+
+```
+when an amount a arrives:   index += (a × SCALE + carry) / total_raised
+a position's claim:         floor(principal × (index − checkpoint) / SCALE)
+```
+
+| | Record per holder | Index |
+|---|---|---|
+| Transactions per coupon | grows with the number of holders | **one** |
+| New accounts per coupon | one per holder | **none** |
+| Rent | per holder, per action | none |
+| A thousand holders | hundreds of transactions | the same single transaction |
+
+There are four indices — principal, interest, penalty, prepayment fee — and a
+`carry` that keeps the remainder of each division, so nothing is created and
+nothing is lost. The checkpoint stored on a position is that position's own
+index: the watermark of what it has already taken.
+
+This is also why settlement is T+0 by construction. There is no batch to run
+after the borrower pays: the payment **is** the settlement, whatever the number
+of holders.
 
 ### Where the register comes from
 
