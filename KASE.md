@@ -9,6 +9,8 @@ Dala Capital is a working private-credit platform on Solana: Kazakhstani SMEs ra
 
 Everything described here is live on **devnet** and reproducible from this repository.
 
+Built solo by Mikhail Davydov — [LinkedIn](https://www.linkedin.com/in/mikhail-davydov/) · [Telegram](https://t.me/davidoff_m). Questions welcome.
+
 > **One number worth knowing before anything else.** A coupon is usually paid by
 > writing an entitlement record for every holder and settling them one by one —
 > a thousand holders, a thousand accounts, well over a hundred transactions, and

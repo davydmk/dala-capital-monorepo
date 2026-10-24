@@ -8,6 +8,8 @@
 
 **Стенд в сети: [app.dala-capital.live](https://app.dala-capital.live)** — devnet, операции настоящие.
 
+Сделано в одиночку, Давыдов Михаил — [LinkedIn](https://www.linkedin.com/in/mikhail-davydov/) · [Telegram](https://t.me/davidoff_m)
+
 ### Где что лежит
 
 | Документ | Что внутри | Язык | Кому |
