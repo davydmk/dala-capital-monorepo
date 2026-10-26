@@ -8,6 +8,8 @@ Kazakhstani SMEs raise USDC from offshore investors who never connect a wallet: 
 
 **Live: [app.dala-capital.live](https://app.dala-capital.live)** · devnet, real transactions
 
+**Overview for Demo Day, four minutes:** [in English](https://www.youtube.com/watch?v=nUhHLLve0EY) · [по-русски](https://www.youtube.com/watch?v=GCUXC5AWvUU) — what the instrument is, how settlement is computed, and where this can be launched lawfully. The nine step-by-step recordings are [below](#watch-it-work).
+
 Built solo by Mikhail Davydov — [LinkedIn](https://www.linkedin.com/in/mikhail-davydov/) · [Telegram](https://t.me/davidoff_m)
 
 ### Where everything is

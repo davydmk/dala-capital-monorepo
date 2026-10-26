@@ -8,6 +8,8 @@
 
 **Стенд в сети: [app.dala-capital.live](https://app.dala-capital.live)** — devnet, операции настоящие.
 
+**Обзор к Demo Day, 4 минуты:** [по-русски](https://www.youtube.com/watch?v=GCUXC5AWvUU) · [in English](https://www.youtube.com/watch?v=nUhHLLve0EY) — что это за инструмент, как устроен расчёт и где это можно запустить законно. Девять записей по шагам — [ниже](#как-это-выглядит).
+
 Сделано в одиночку, Давыдов Михаил — [LinkedIn](https://www.linkedin.com/in/mikhail-davydov/) · [Telegram](https://t.me/davidoff_m)
 
 ### Где что лежит
