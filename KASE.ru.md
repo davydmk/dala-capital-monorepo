@@ -9,6 +9,8 @@ Dala Capital — работающая платформа частного кре
 
 Всё описанное работает в **devnet** и воспроизводится из этого репозитория.
 
+**Обзор к Demo Day, 4 минуты:** [по-русски](https://www.youtube.com/watch?v=GCUXC5AWvUU) · [in English](https://www.youtube.com/watch?v=nUhHLLve0EY) — то же самое, о чём этот документ, только картинками. Девять записей по шагам — в [README](README.ru.md#как-это-выглядит).
+
 Сделано в одиночку, Давыдов Михаил — [LinkedIn](https://www.linkedin.com/in/mikhail-davydov/) · [Telegram](https://t.me/davidoff_m). Вопросы приветствуются.
 
 > **Одно число, которое стоит знать до всего остального.** Купон обычно платят так:

@@ -9,6 +9,8 @@ Dala Capital is a working private-credit platform on Solana: Kazakhstani SMEs ra
 
 Everything described here is live on **devnet** and reproducible from this repository.
 
+**Overview for Demo Day, four minutes:** [in English](https://www.youtube.com/watch?v=nUhHLLve0EY) · [по-русски](https://www.youtube.com/watch?v=GCUXC5AWvUU) — the same ground as this document, in pictures. Nine step-by-step recordings are in the [README](README.md#watch-it-work).
+
 Built solo by Mikhail Davydov — [LinkedIn](https://www.linkedin.com/in/mikhail-davydov/) · [Telegram](https://t.me/davidoff_m). Questions welcome.
 
 > **One number worth knowing before anything else.** A coupon is usually paid by
